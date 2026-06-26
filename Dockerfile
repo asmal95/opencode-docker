@@ -28,20 +28,18 @@ ENV PATH="/root/.local/bin:$PATH"
 ARG OPENCODE_BUILD_TIME=0
 RUN npm install -g opencode-ai@latest
 
-# Install gosu for privilege dropping
+# Install gosu for privilege dropping (not used, kept for compatibility)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gosu \
     && rm -rf /var/lib/apt/lists/*
 
-# Create user directory structure
+# Create user directory structure with proper ownership
 RUN mkdir -p /home/coder/.local/share/opencode \
+    && mkdir -p /home/coder/.local/state \
     && mkdir -p /home/coder/.cache/opencode \
     && mkdir -p /home/coder/.config/opencode \
-    && useradd -m -s /bin/bash coder
-
-# Copy entrypoint script
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+    && useradd -m -s /bin/bash coder \
+    && chown -R coder:coder /home/coder
 
 # Set environment variables to disable unwanted features
 ENV OPENCODE_DISABLE_AUTOUPDATE=true
@@ -51,9 +49,12 @@ ENV OPENCODE_DISABLE_SHARE=true
 # Create MCP servers directory
 RUN mkdir -p /opt/mcp-servers
 
-# Switch to coder user
+# Copy entrypoint script (not used, kept for compatibility)
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+# Switch to non-root user
 USER coder
 WORKDIR /workspace
 
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["opencode"]

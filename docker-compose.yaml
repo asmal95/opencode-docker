@@ -21,13 +21,15 @@ services:
       - opencode-cache:/home/coder/.cache/opencode
       - ./configs/${SCENARIO:-base}:/opt/opencode-config/:ro
       - ${PROJECT_DIR:-.}:/workspace
-    security_opt:
-      - no-new-privileges:true
     cap_drop:
       - ALL
-    read_only: true
-    tmpfs:
-      - /tmp:noexec,nosuid,size=100m
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+      - FOWNER
+      - NET_BIND_SERVICE
     extra_hosts:
       - "app.opencode.ai:0.0.0.0"
       - "api.opencode.ai:0.0.0.0"
