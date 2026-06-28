@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "providers": {
+  "provider": {
     "openai-compatible": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
@@ -15,13 +15,12 @@
     }
   },
   "model": "openai-compatible/minimax/minimax-m2.7",
-  "permissions": {
+  "permission": {
     "write": "allow",
     "edit": "allow",
     "bash": "ask"
   },
   "tools": {
     "allowed": ["*"]
-  },
-  "headless": true
+  }
 }
