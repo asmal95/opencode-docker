@@ -1,13 +1,20 @@
 {
+  "$schema": "https://opencode.ai/config.json",
   "providers": {
     "openai-compatible": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
         "baseURL": "{env:OPENAI_COMPATIBLE_BASE_URL}",
         "apiKey": "{env:OPENAI_COMPATIBLE_API_KEY}"
+      },
+      "models": {
+        "minimax/minimax-m2.7": {
+          "name": "MiniMax M2.7"
+        }
       }
     }
   },
+  "model": "openai-compatible/minimax/minimax-m2.7",
   "permissions": {
     "write": "allow",
     "edit": "allow",
