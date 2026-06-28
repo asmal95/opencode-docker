@@ -19,6 +19,6 @@
   "permission": {
     "write": "allow",
     "edit": "allow",
-    "bash": "ask"
+    "bash": "allow"
   }
 }
