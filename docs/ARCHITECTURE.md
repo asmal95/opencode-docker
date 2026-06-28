@@ -355,7 +355,7 @@ docker compose logs opencode
 **Authentication errors (401):**
 ```bash
 # Verify OPENCODE_SERVER_PASSWORD is set in .env
-docker compose -f docker-compose.prebuilt.yaml exec opencode env | grep SERVER_PASSWORD
+docker compose -f docker-compose.deploy.yaml exec opencode env | grep SERVER_PASSWORD
 ```
 
 **Long response times:**

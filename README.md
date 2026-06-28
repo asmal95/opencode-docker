@@ -24,16 +24,29 @@ Set your credentials:
 ### 3. Start
 
 ```bash
-docker compose -f docker-compose.prebuilt.yaml up -d
+docker compose -f docker-compose.deploy.yaml up -d
 ```
 
 ### 4. Verify
 
 ```bash
-docker compose -f docker-compose.prebuilt.yaml logs -f
+docker compose -f docker-compose.deploy.yaml logs -f
 ```
 
 Your Telegram bot should respond to messages.
+
+## Docker Images
+
+- `asmal95/opencode-platform:latest` — OpenCode AI server
+- `asmal95/telegram-bot:latest` — Telegram bot sidecar
+
+## Requirements
+
+- Docker 20.10+
+- Docker Compose 2.0+
+- Telegram bot token
+- AI API key (any OpenAI-compatible provider)
+- Server password (`OPENCODE_SERVER_PASSWORD`)
 
 ## AI Provider Setup
 
@@ -62,25 +75,25 @@ OPENCODE_SERVER_PASSWORD=your-strong-password
 
 | File | Use case |
 |------|----------|
-| `docker-compose.prebuilt.yaml` | Prebuilt images from DockerHub (recommended) |
-| `docker-compose.quickstart.yaml` | Prebuilt + `host.docker.internal` support |
+| `docker-compose.deploy.yaml` | DockerHub images (recommended) |
+| `docker-compose.ollama.yaml` | Prebuilt + `host.docker.internal` support |
 | `docker-compose.yaml` | Build from source |
 
 ## Management
 
 ```bash
 # Logs
-docker compose -f docker-compose.prebuilt.yaml logs -f
+docker compose -f docker-compose.deploy.yaml logs -f
 
 # Restart
-docker compose -f docker-compose.prebuilt.yaml restart
+docker compose -f docker-compose.deploy.yaml restart
 
 # Stop
-docker compose -f docker-compose.prebuilt.yaml down
+docker compose -f docker-compose.deploy.yaml down
 
 # Update
-docker compose -f docker-compose.prebuilt.yaml pull
-docker compose -f docker-compose.prebuilt.yaml up -d
+docker compose -f docker-compose.deploy.yaml pull
+docker compose -f docker-compose.deploy.yaml up -d
 ```
 
 ## Auto Deployment

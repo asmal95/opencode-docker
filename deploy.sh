@@ -49,11 +49,11 @@ echo "Configuration found"
 
 # Pull latest images
 echo "Pulling latest Docker images..."
-docker compose -f docker-compose.prebuilt.yaml pull
+docker compose -f docker-compose.deploy.yaml pull
 
 # Start containers
 echo "Starting containers..."
-docker compose -f docker-compose.prebuilt.yaml up -d
+docker compose -f docker-compose.deploy.yaml up -d
 
 # Wait for services to be ready
 echo "Waiting for services to start..."
@@ -62,14 +62,14 @@ sleep 5
 # Check status
 echo ""
 echo "Container Status:"
-docker compose -f docker-compose.prebuilt.yaml ps
+docker compose -f docker-compose.deploy.yaml ps
 
 echo ""
 echo "Deployment complete!"
 echo ""
 echo "Management Commands:"
-echo "  View logs: docker compose -f docker-compose.prebuilt.yaml logs -f"
-echo "  Restart:   docker compose -f docker-compose.prebuilt.yaml restart"
-echo "  Stop:      docker compose -f docker-compose.prebuilt.yaml down"
+echo "  View logs: docker compose -f docker-compose.deploy.yaml logs -f"
+echo "  Restart:   docker compose -f docker-compose.deploy.yaml restart"
+echo "  Stop:      docker compose -f docker-compose.deploy.yaml down"
 echo ""
 echo "Your Telegram bot should now be responding to messages!"

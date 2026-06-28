@@ -211,8 +211,8 @@ docker compose logs opencode
 
 ```bash
 # Check password is set in both containers
-docker compose -f docker-compose.prebuilt.yaml exec opencode env | grep SERVER_PASSWORD
-docker compose -f docker-compose.prebuilt.yaml logs telegram-bot | grep -i "401\|auth"
+docker compose -f docker-compose.deploy.yaml exec opencode env | grep SERVER_PASSWORD
+docker compose -f docker-compose.deploy.yaml logs telegram-bot | grep -i "401\|auth"
 ```
 
 ### Provider connection issues

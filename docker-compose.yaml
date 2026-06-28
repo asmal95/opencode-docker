@@ -23,6 +23,7 @@ services:
     volumes:
       - opencode-data:/home/coder/.local/share/opencode
       - opencode-cache:/home/coder/.cache/opencode
+      - opencode-state:/home/coder/.local/state
       - ./configs/${SCENARIO:-bot}:/opt/opencode-config/:ro
       - ${PROJECT_DIR:-.}:/workspace
     read_only: true
@@ -53,6 +54,8 @@ volumes:
   opencode-data:
     driver: local
   opencode-cache:
+    driver: local
+  opencode-state:
     driver: local
 
 networks:

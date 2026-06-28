@@ -150,7 +150,7 @@ OPENCODE_SERVER_PASSWORD=your-strong-password
 - [ ] Server password set
 - [ ] Network connectivity verified
 - [ ] Environment variables set in `.env`
-- [ ] `docker compose -f docker-compose.prebuilt.yaml up -d` successful
+- [ ] `docker compose -f docker-compose.deploy.yaml up -d` successful
 - [ ] Container status: `Up`
 - [ ] Bot responds to test message
 
@@ -172,9 +172,9 @@ opencode-bot/
 mkdir -p configs/bot
 
 # Create docker-compose.yaml
-docker compose -f docker-compose.prebuilt.yaml up -d
+docker compose -f docker-compose.deploy.yaml up -d
 
 # Start everything
-docker compose -f docker-compose.prebuilt.yaml up -d
-docker compose -f docker-compose.prebuilt.yaml logs -f
+docker compose -f docker-compose.deploy.yaml up -d
+docker compose -f docker-compose.deploy.yaml logs -f
 ```

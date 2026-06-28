@@ -56,7 +56,7 @@ OPENCODE_SERVER_PASSWORD=your_server_password_here
 ### Step 3: Deploy
 
 ```bash
-docker compose -f docker-compose.prebuilt.yaml up -d
+docker compose -f docker-compose.deploy.yaml up -d
 ```
 
 ## Server Authentication
@@ -147,10 +147,10 @@ OPENAI_COMPATIBLE_API_KEY=sk-not-needed
 
 ```bash
 # Check server password is set
-docker compose -f docker-compose.prebuilt.yaml exec opencode env | grep SERVER_PASSWORD
+docker compose -f docker-compose.deploy.yaml exec opencode env | grep SERVER_PASSWORD
 
 # Check bot config has the password
-docker compose -f docker-compose.prebuilt.yaml logs telegram-bot
+docker compose -f docker-compose.deploy.yaml logs telegram-bot
 ```
 
 ### Connection Refused
@@ -170,10 +170,10 @@ docker exec opencode curl http://YOUR_BASE_URL/v1/models
 cat configs/bot/opencode.jsonc
 
 # Restart containers
-docker compose -f docker-compose.prebuilt.yaml restart
+docker compose -f docker-compose.deploy.yaml restart
 
 # Check logs
-docker compose -f docker-compose.prebuilt.yaml logs opencode
+docker compose -f docker-compose.deploy.yaml logs opencode
 ```
 
 ## Best Practices

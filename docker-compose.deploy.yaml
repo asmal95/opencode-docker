@@ -14,6 +14,7 @@ services:
     volumes:
       - opencode-data:/home/coder/.local/share/opencode
       - opencode-cache:/home/coder/.cache/opencode
+      - opencode-state:/home/coder/.local/state
       - ./configs/bot:/opt/opencode-config:ro
     read_only: true
     tmpfs:
@@ -47,6 +48,8 @@ volumes:
   opencode-data:
     driver: local
   opencode-cache:
+    driver: local
+  opencode-state:
     driver: local
 
 networks:
