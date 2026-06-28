@@ -1,5 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": ["openai-compatible"],
   "provider": {
     "openai-compatible": {
       "npm": "@ai-sdk/openai-compatible",
