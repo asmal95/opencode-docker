@@ -14,7 +14,6 @@ services:
     volumes:
       - opencode-data:/home/coder/.local/share/opencode
       - opencode-cache:/home/coder/.cache/opencode
-      - opencode-state:/home/coder/.local/state
       - ./configs/bot:/opt/opencode-config:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -52,8 +51,6 @@ volumes:
   opencode-data:
     driver: local
   opencode-cache:
-    driver: local
-  opencode-state:
     driver: local
 
 networks:
