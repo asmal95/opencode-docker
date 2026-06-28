@@ -17,51 +17,44 @@ async def handle_message(message: types.Message):
     try:
         headers = {"Authorization": _auth_header()}
         async with httpx.AsyncClient(timeout=300.0, headers=headers) as client:
-            project_response = await client.post(
-                f"{settings.OPENCODE_API_URL}/project/init",
-                json={}
+            sessions_response = await client.get(
+                f"{settings.OPENCODE_API_URL}/session",
+                headers=headers
             )
-            project_response.raise_for_status()
-            project_id = project_response.json().get("id")
+            sessions_response.raise_for_status()
+            sessions = sessions_response.json()
 
-            if not project_id:
-                await message.answer("Failed to create OpenCode project")
-                return
-
-            session_response = await client.post(
-                f"{settings.OPENCODE_API_URL}/project/{project_id}/session",
-                json={"directory": "/workspace"}
-            )
-            session_response.raise_for_status()
-            session_data = session_response.json()
-            session_id = session_data.get("id")
-
-            if not session_id:
-                await message.answer("Failed to create OpenCode session")
-                return
+            if sessions:
+                session = sessions[0]
+                session_id = session.get("id")
+                session_directory = session.get("directory", "/workspace")
+            else:
+                import uuid
+                session_id = f"ses_{uuid.uuid4().hex[:24]}"
+                session_directory = "/workspace"
 
             response = await client.post(
-                f"{settings.OPENCODE_API_URL}/project/{project_id}/session/{session_id}/message",
+                f"{settings.OPENCODE_API_URL}/session/{session_id}/message",
                 json={
+                    "directory": session_directory,
                     "parts": [{"type": "text", "text": message.text}]
                 }
             )
             response.raise_for_status()
 
             response_data = response.json()
-
             parts = response_data.get("parts", [])
-            response_text = "\n".join(
-                item.get("text", "") for item in parts if item.get("type") == "text"
-            )
+            text_parts = [p for p in parts if p.get("type") == "text"]
+
+            response_text = ""
+            if text_parts:
+                response_text = text_parts[0].get("text", "")
 
             if response_text:
                 for chunk in [response_text[i:i+4096] for i in range(0, len(response_text), 4096)]:
                     await message.answer(chunk)
             else:
                 await message.answer("No response from OpenCode")
-
-            await client.delete(f"{settings.OPENCODE_API_URL}/project/{project_id}/session/{session_id}")
 
     except Exception as e:
         logger.error(f"Error processing message: {e}")
