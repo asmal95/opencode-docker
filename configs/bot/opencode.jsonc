@@ -19,8 +19,5 @@
     "write": "allow",
     "edit": "allow",
     "bash": "ask"
-  },
-  "tools": {
-    "allowed": ["*"]
   }
 }
