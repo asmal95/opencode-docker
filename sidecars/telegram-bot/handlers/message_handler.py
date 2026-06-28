@@ -17,10 +17,22 @@ async def handle_message(message: types.Message):
     try:
         headers = {"Authorization": _auth_header()}
         async with httpx.AsyncClient(timeout=300.0, headers=headers) as client:
-            session_response = await client.post(
-                f"{settings.OPENCODE_API_URL}/session",
+            project_response = await client.post(
+                f"{settings.OPENCODE_API_URL}/project/init",
                 json={}
             )
+            project_response.raise_for_status()
+            project_id = project_response.json().get("id")
+
+            if not project_id:
+                await message.answer("Failed to create OpenCode project")
+                return
+
+            session_response = await client.post(
+                f"{settings.OPENCODE_API_URL}/project/{project_id}/session",
+                json={"directory": "/workspace"}
+            )
+            session_response.raise_for_status()
             session_data = session_response.json()
             session_id = session_data.get("id")
 
@@ -29,11 +41,12 @@ async def handle_message(message: types.Message):
                 return
 
             response = await client.post(
-                f"{settings.OPENCODE_API_URL}/session/{session_id}/message",
+                f"{settings.OPENCODE_API_URL}/project/{project_id}/session/{session_id}/message",
                 json={
                     "parts": [{"type": "text", "text": message.text}]
                 }
             )
+            response.raise_for_status()
 
             response_data = response.json()
 
@@ -48,7 +61,7 @@ async def handle_message(message: types.Message):
             else:
                 await message.answer("No response from OpenCode")
 
-            await client.delete(f"{settings.OPENCODE_API_URL}/session/{session_id}")
+            await client.delete(f"{settings.OPENCODE_API_URL}/project/{project_id}/session/{session_id}")
 
     except Exception as e:
         logger.error(f"Error processing message: {e}")

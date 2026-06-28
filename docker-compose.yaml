@@ -7,13 +7,12 @@ services:
       args:
         OPENCODE_BUILD_TIME: "${OPENCODE_BUILD_TIME:-0}"
     image: opencode-platform:latest
-    command: ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
+    command: ["opencode", "serve", "--log-level", "DEBUG", "--hostname", "0.0.0.0", "--port", "4096"]
     ports:
       - "4096:4096"
     environment:
       OPENCODE_CONFIG: /opt/opencode-config/opencode.jsonc
       OPENCODE_DISABLE_AUTOUPDATE: "true"
-      OPENCODE_DISABLE_MODELS_FETCH: "true"
       OPENCODE_DISABLE_SHARE: "true"
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
       OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-}
