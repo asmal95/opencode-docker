@@ -21,11 +21,6 @@ RUN npm install -g @ast-grep/cli
 # Install OpenSpec CLI
 RUN cargo install openspec-cli || echo "OpenSpec CLI installation skipped (cargo not available)"
 
-# Install Docker CLI (for scenarios that need Docker access)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    docker.io \
-    && rm -rf /var/lib/apt/lists/*
-
 # Switch back to coder user
 USER coder
 WORKDIR /workspace

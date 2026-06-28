@@ -1,0 +1,20 @@
+{
+  "providers": {
+    "openai-compatible": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "{env:OPENAI_COMPATIBLE_BASE_URL}",
+        "apiKey": "{env:OPENAI_COMPATIBLE_API_KEY}"
+      }
+    }
+  },
+  "permissions": {
+    "write": "allow",
+    "edit": "allow",
+    "bash": "ask"
+  },
+  "tools": {
+    "allowed": ["*"]
+  },
+  "headless": true
+}

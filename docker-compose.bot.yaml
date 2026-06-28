@@ -1,0 +1,21 @@
+services:
+  opencode:
+    command: ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
+    extra_hosts:
+      - "app.opencode.ai:0.0.0.0"
+      - "api.opencode.ai:0.0.0.0"
+      - "opncd.ai:0.0.0.0"
+      - "models.dev:0.0.0.0"
+
+  telegram-bot:
+    build:
+      context: ./sidecars/telegram-bot
+      dockerfile: Dockerfile
+    depends_on:
+      - opencode
+    environment:
+      OPENCODE_API_URL: http://opencode:4096
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+    networks:
+      - opencode-net
+    restart: unless-stopped

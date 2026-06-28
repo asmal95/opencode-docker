@@ -1,29 +1,21 @@
 services:
   opencode:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: opencode-base
-      args:
-        OPENCODE_BUILD_TIME: "${OPENCODE_BUILD_TIME:-0}"
-    image: opencode-platform:latest
+    image: asmal95/opencode-platform:latest
     command: ["opencode", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
     ports:
       - "4096:4096"
     environment:
-      OPENCODE_CONFIG: /opt/opencode-config/opencode.jsonc
       OPENCODE_DISABLE_AUTOUPDATE: "true"
       OPENCODE_DISABLE_MODELS_FETCH: "true"
       OPENCODE_DISABLE_SHARE: "true"
       OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-}
       OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-}
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
     volumes:
       - opencode-data:/home/coder/.local/share/opencode
       - opencode-cache:/home/coder/.cache/opencode
-      - ./configs/${SCENARIO:-bot}:/opt/opencode-config/:ro
-      - ${PROJECT_DIR:-.}:/workspace
+      - ./configs/bot:/opt/opencode-config:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     read_only: true
     tmpfs:
       - /tmp
@@ -36,17 +28,20 @@ services:
       - SETUID
       - SETGID
       - NET_BIND_SERVICE
-    extra_hosts:
-      - "app.opencode.ai:0.0.0.0"
-      - "api.opencode.ai:0.0.0.0"
-      - "opncd.ai:0.0.0.0"
-      - "models.dev:0.0.0.0"
+    restart: unless-stopped
     networks:
       - opencode-net
-    stdin_open: true
-    tty: true
-    working_dir: /workspace
+
+  telegram-bot:
+    image: asmal95/telegram-bot:latest
+    depends_on:
+      - opencode
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      OPENCODE_API_URL: http://opencode:4096
     restart: unless-stopped
+    networks:
+      - opencode-net
 
 volumes:
   opencode-data:
