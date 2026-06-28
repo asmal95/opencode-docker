@@ -38,8 +38,11 @@ RUN mkdir -p /home/coder/.local/share/opencode \
     && mkdir -p /home/coder/.local/state \
     && mkdir -p /home/coder/.cache/opencode \
     && mkdir -p /home/coder/.config/opencode \
+    && mkdir -p /workspace \
+    && chmod 1777 /workspace \
     && useradd -m -s /bin/bash coder \
-    && chown -R coder:coder /home/coder
+    && chown -R coder:coder /home/coder \
+    && chown coder:coder /workspace
 
 # Set environment variables to disable unwanted features
 ENV OPENCODE_DISABLE_AUTOUPDATE=true

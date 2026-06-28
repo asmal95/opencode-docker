@@ -17,6 +17,7 @@ services:
       - opencode-cache:/home/coder/.cache/opencode
       - opencode-state:/home/coder/.local/state
       - ./configs/bot:/opt/opencode-config:ro
+      - opencode-workspace:/workspace
     extra_hosts:
       - "host.docker.internal:host-gateway"
     read_only: true
@@ -24,7 +25,6 @@ services:
       - /tmp
       - /home/coder/.config/opencode
       - /home/coder/.local/state
-      - /home/coder/.config/opencode
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -56,6 +56,8 @@ volumes:
   opencode-cache:
     driver: local
   opencode-state:
+    driver: local
+  opencode-workspace:
     driver: local
 
 networks:
