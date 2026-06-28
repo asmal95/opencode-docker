@@ -1,7 +1,7 @@
 services:
   opencode:
     image: asmal95/opencode-platform:latest
-    command: ["opencode", "serve", "--headless", "--log-level", "DEBUG", "--hostname", "0.0.0.0", "--port", "4096"]
+    command: ["opencode", "serve", "--print-logs", "--log-level", "DEBUG", "--hostname", "0.0.0.0", "--port", "4096"]
     ports:
       - "4096:4096"
     environment:
