@@ -16,6 +16,9 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=your_api_key_here
 
+# OpenCode Server Authentication
+OPENCODE_SERVER_PASSWORD=your_server_password_here
+
 # User/Group ID mapping
 PUID=1000
 PGID=1000
@@ -39,8 +42,7 @@ fi
 if [ ! -f configs/bot/opencode.jsonc ]; then
     echo "Creating provider configuration..."
     mkdir -p configs/bot
-    cp configs/bot/opencode.jsonc configs/bot/opencode.jsonc.bak 2>/dev/null || true
-    echo "✅ Provider configuration found"
+    echo "Provider configuration found"
 fi
 
 echo "Configuration found"

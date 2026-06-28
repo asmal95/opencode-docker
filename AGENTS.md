@@ -9,7 +9,7 @@ Docker deployment platform for [OpenCode AI](https://opencode.ai) with Telegram 
 ### Architecture
 
 ```
-Telegram User --> Telegram Bot (aiogram) --> OpenCode (port 4096) --> AI Provider
+Telegram User --> Telegram Bot (aiogram) --> OpenCode (port 4096, Basic Auth) --> AI Provider
 ```
 
 Two containers on shared Docker network `opencode-net`:
@@ -45,6 +45,7 @@ Two containers on shared Docker network `opencode-net`:
 
 Required:
 - `TELEGRAM_BOT_TOKEN` — Telegram bot token from @BotFather
+- `OPENCODE_SERVER_PASSWORD` — HTTP Basic Auth password for OpenCode server
 
 Provider:
 - `OPENAI_COMPATIBLE_BASE_URL` — e.g. `https://api.openrouter.ai/v1` or `http://host.docker.internal:11434/v1`
@@ -86,9 +87,11 @@ Never commit `.env`.
 1. **No Anthropic/OpenRouter-specific config** — provider is unified via `openai-compatible`
 2. **No dead code** — remove unused variables, files, and documentation
 3. **Security** — all compose files use `read_only: true`, `no-new-privileges`, minimal `cap_add`
-4. **Bot creates sessions via API** — `message_handler.py` sends `json={}` to `/sessions` (config mounted from host)
-5. **Docker images** — push to `asmal95/opencode-platform` and `asmal95/telegram-bot` on DockerHub
-6. **Windows dev** — LF/CRLF warnings are normal on Windows, no action needed
+4. **Server auth** — OpenCode protected by `OPENCODE_SERVER_PASSWORD` (HTTP Basic Auth)
+5. **Bot sends auth header** — `message_handler.py` includes `Authorization: Basic` header
+6. **API paths** — OpenCode uses singular paths: `/session`, `/session/{id}/message`
+7. **Docker images** — push to `asmal95/opencode-platform` and `asmal95/telegram-bot` on DockerHub
+8. **Windows dev** — LF/CRLF warnings are normal on Windows, no action needed
 
 ## Common Tasks
 
@@ -118,4 +121,5 @@ bash deploy.sh
 - Do not add hardcoded IPs (use env vars)
 - Do not remove security settings (read_only, no-new-privileges, cap_drop/add)
 - Do not add GITHUB_TOKEN/GITHUB_REPO (removed as dead code)
+- Do not remove OPENCODE_SERVER_PASSWORD auth
 - Do not commit .env files

@@ -36,6 +36,7 @@ services:
       OPENCODE_DISABLE_AUTOUPDATE: "true"
       OPENCODE_DISABLE_MODELS_FETCH: "true"
       OPENCODE_DISABLE_SHARE: "true"
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
       OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-}
       OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-}
     volumes:
@@ -53,6 +54,7 @@ services:
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
     restart: unless-stopped
 
 volumes:
@@ -70,6 +72,7 @@ cat > .env << 'EOF'
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=your_api_key_here
+OPENCODE_SERVER_PASSWORD=your_server_password_here
 EOF
 ```
 
@@ -107,9 +110,7 @@ nano .env
 nano configs/bot/opencode.jsonc
 ```
 
-Replace:
-- `your_telegram_bot_token_here` with your Telegram bot token
-- `your_api_key_here` with your API key (if required by provider)
+Replace with your actual values.
 
 ## Step 5: Start and verify
 
@@ -166,6 +167,9 @@ docker compose logs
 
 # Test provider connectivity
 docker exec opencode curl http://host.docker.internal:11434/v1/models
+
+# Test OpenCode API (with auth)
+curl -u "opencode:your-password" http://localhost:4096/global/health
 
 # Restart everything
 docker compose restart

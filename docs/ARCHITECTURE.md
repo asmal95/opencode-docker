@@ -8,11 +8,11 @@ User Message (Telegram)
         ▼
 Telegram Bot (aiogram)
         │
-        │ 1. POST /sessions (create session)
+        │ 1. POST /session (create session, Basic Auth)
         ▼
 OpenCode API (port 4096)
         │
-        │ 2. POST /sessions/{id}/messages
+        │ 2. POST /session/{id}/message
         ▼
 AI Provider (any OpenAI-compatible API)
         │
@@ -51,13 +51,15 @@ async def handle_message(message: types.Message):
 ```
 
 ### 3. Bot Creates OpenCode Session
-- **Endpoint**: `POST {OPENCODE_API_URL}/sessions`
+- **Endpoint**: `POST {OPENCODE_API_URL}/session`
+- **Auth**: HTTP Basic Auth (`opencode:{OPENCODE_SERVER_PASSWORD}`)
 - **Library**: httpx 0.27.0 (Async HTTP client)
 - **Timeout**: 300 seconds
 
 ```python
+headers = {"Authorization": f"Basic {base64.b64encode(credentials)}"}
 session_response = await client.post(
-    f"{settings.OPENCODE_API_URL}/sessions",
+    f"{settings.OPENCODE_API_URL}/session",
     json={}  # Config comes from mounted opencode.jsonc
 )
 ```
@@ -68,15 +70,15 @@ session_response = await client.post(
 - Returns session ID for subsequent requests
 
 ### 4. Bot Sends User Message to OpenCode
-- **Endpoint**: `POST {OPENCODE_API_URL}/sessions/{session_id}/messages`
+- **Endpoint**: `POST {OPENCODE_API_URL}/session/{id}/message`
+- **Auth**: HTTP Basic Auth
 - **Method**: HTTP POST with JSON payload
 
 ```python
 response = await client.post(
-    f"{settings.OPENCODE_API_URL}/sessions/{session_id}/messages",
+    f"{settings.OPENCODE_API_URL}/session/{session_id}/message",
     json={
-        "role": "user",
-        "content": [{"type": "text", "text": message.text}]
+        "parts": [{"type": "text", "text": message.text}]
     }
 )
 ```
@@ -102,14 +104,13 @@ response = await client.post(
 - **Structure**:
 ```json
 {
-  "message": {
-    "content": [
-      {
-        "type": "text",
-        "text": "AI response here..."
-      }
-    ]
-  }
+  "info": { ... },
+  "parts": [
+    {
+      "type": "text",
+      "text": "AI response here..."
+    }
+  ]
 }
 ```
 
@@ -118,9 +119,9 @@ response = await client.post(
 - **Logic**: Extracts text content from structured response
 
 ```python
-assistant_message = response_data.get("message", {}).get("content", [])
+parts = response_data.get("parts", [])
 response_text = "\n".join(
-    item.get("text", "") for item in assistant_message if item.get("type") == "text"
+    item.get("text", "") for item in parts if item.get("type") == "text"
 )
 ```
 
@@ -135,11 +136,11 @@ for chunk in [response_text[i:i+4096] for i in range(0, len(response_text), 4096
 ```
 
 ### 10. Session Cleanup
-- **Endpoint**: `DELETE {OPENCODE_API_URL}/sessions/{session_id}`
+- **Endpoint**: `DELETE {OPENCODE_API_URL}/session/{id}`
 - **Purpose**: Cleanup session resources
 
 ```python
-await client.delete(f"{settings.OPENCODE_API_URL}/sessions/{session_id}")
+await client.delete(f"{settings.OPENCODE_API_URL}/session/{session_id}")
 ```
 
 ## Network Architecture
@@ -157,6 +158,7 @@ services:
   telegram-bot:
     environment:
       OPENCODE_API_URL: http://opencode:4096
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
     networks:
       - opencode-net
 ```
@@ -164,7 +166,7 @@ services:
 ### Communication Flow
 1. **Internal DNS**: Docker resolves `opencode` to container IP
 2. **Port 4096**: OpenCode serves API on this port
-3. **HTTP Protocol**: REST API over HTTP
+3. **HTTP Basic Auth**: `opencode:{OPENCODE_SERVER_PASSWORD}` for all requests
 4. **JSON Format**: Request/response data in JSON
 
 ## Provider Configuration
@@ -190,6 +192,17 @@ Works with any OpenAI-compatible API:
 - **Ollama**: `http://host.docker.internal:11434/v1`
 - **llama.cpp**: `http://YOUR_IP:8080/v1`
 - **LM Studio**: `http://localhost:1234/v1`
+
+## Server Authentication
+
+OpenCode server uses HTTP Basic Auth:
+
+```bash
+OPENCODE_SERVER_PASSWORD=your-strong-password
+```
+
+- Username: `opencode` (default, change with `OPENCODE_SERVER_USERNAME`)
+- All API requests require `Authorization: Basic <base64(opencode:password)>`
 
 ## Permissions Configuration
 
@@ -229,7 +242,8 @@ except Exception as e:
 1. **Session Creation Failure**: Invalid config, provider unreachable
 2. **Message Processing Failure**: API timeout, provider error
 3. **Response Parsing Failure**: Invalid JSON, missing fields
-4. **Network Issues**: Container connectivity, DNS resolution
+4. **Authentication Failure**: Wrong server password
+5. **Network Issues**: Container connectivity, DNS resolution
 
 ## Performance Considerations
 
@@ -274,10 +288,17 @@ extra_hosts:
   - "models.dev:0.0.0.0"
 ```
 
+### Server Authentication
+
+```bash
+OPENCODE_SERVER_PASSWORD=your-strong-password
+```
+
+HTTP Basic Auth protects the API endpoint. The Telegram bot automatically includes the auth header.
+
 ### API Key Management
 
 ```bash
-# Environment variables only
 OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=sk-or-xxx
 ```
@@ -299,15 +320,20 @@ docker compose logs -f opencode
 ### Test API Directly
 
 ```bash
+# Health check
+curl http://localhost:4096/global/health
+
 # Create session
-curl -X POST http://localhost:4096/sessions \
+curl -X POST http://localhost:4096/session \
+  -u "opencode:your-password" \
   -H "Content-Type: application/json" \
   -d '{}'
 
 # Send message
-curl -X POST http://localhost:4096/sessions/{id}/messages \
+curl -X POST http://localhost:4096/session/{id}/message \
+  -u "opencode:your-password" \
   -H "Content-Type: application/json" \
-  -d '{"role":"user","content":[{"type":"text","text":"Hello"}]}'
+  -d '{"parts":[{"type":"text","text":"Hello"}]}'
 ```
 
 ## Troubleshooting
@@ -324,6 +350,12 @@ docker compose logs telegram-bot
 ```bash
 docker compose logs opencode
 # Check: Provider config, API keys
+```
+
+**Authentication errors (401):**
+```bash
+# Verify OPENCODE_SERVER_PASSWORD is set in .env
+docker compose -f docker-compose.prebuilt.yaml exec opencode env | grep SERVER_PASSWORD
 ```
 
 **Long response times:**
@@ -345,12 +377,12 @@ docker exec opencode curl http://YOUR_BASE_URL/v1/models
 
 The Telegram bot acts as a **bridge** between:
 - **User** (Telegram chat interface)
-- **OpenCode** (AI processing engine)
+- **OpenCode** (AI processing engine, protected by Basic Auth)
 - **AI Providers** (any OpenAI-compatible API)
 
 It handles:
 - ✅ Message reception from Telegram
-- ✅ Session management with OpenCode
+- ✅ Session management with OpenCode (HTTP Basic Auth)
 - ✅ API communication (HTTP/JSON)
 - ✅ Response parsing and formatting
 - ✅ Message size limitation handling
@@ -359,6 +391,6 @@ It handles:
 
 This architecture provides a **clean separation of concerns**:
 - Telegram bot focuses on chat interface
-- OpenCode handles AI processing
+- OpenCode handles AI processing with authentication
 - Providers execute model inference
 - Any OpenAI-compatible API works out of the box

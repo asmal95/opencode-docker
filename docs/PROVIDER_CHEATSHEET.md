@@ -9,6 +9,7 @@
 TELEGRAM_BOT_TOKEN=123456:ABC-DEFxxx
 OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=sk-or-xxx
+OPENCODE_SERVER_PASSWORD=your_server_password
 ```
 
 ### Ollama (Local)
@@ -17,6 +18,7 @@ OPENAI_COMPATIBLE_API_KEY=sk-or-xxx
 # .env
 TELEGRAM_BOT_TOKEN=123456:ABC-DEFxxx
 OPENAI_COMPATIBLE_BASE_URL=http://host.docker.internal:11434/v1
+OPENCODE_SERVER_PASSWORD=your_server_password
 ```
 
 ### llama.cpp / LM Studio
@@ -25,6 +27,7 @@ OPENAI_COMPATIBLE_BASE_URL=http://host.docker.internal:11434/v1
 # .env
 TELEGRAM_BOT_TOKEN=123456:ABC-DEFxxx
 OPENAI_COMPATIBLE_BASE_URL=http://YOUR_IP:PORT/v1
+OPENCODE_SERVER_PASSWORD=your_server_password
 ```
 
 ## Provider Templates
@@ -44,6 +47,16 @@ OPENAI_COMPATIBLE_BASE_URL=http://YOUR_IP:PORT/v1
   }
 }
 ```
+
+## OpenCode Server API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/session` | Create session |
+| POST | `/session/{id}/message` | Send message |
+| DELETE | `/session/{id}` | Delete session |
+
+Auth: `Authorization: Basic opencode:{password}`
 
 ## Network Quick Reference
 
@@ -84,6 +97,19 @@ curl http://YOUR_IP:PORT/v1/models
 docker exec opencode curl http://YOUR_IP:PORT/v1/models
 ```
 
+### Test OpenCode API
+
+```bash
+# Health check
+curl http://localhost:4096/global/health
+
+# Create session (with auth)
+curl -X POST http://localhost:4096/session \
+  -u "opencode:your-password" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
 ### Troubleshoot
 
 ```bash
@@ -110,12 +136,18 @@ OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=sk-or-xxx
 ```
 
+### Server Authentication
+```bash
+OPENCODE_SERVER_PASSWORD=your-strong-password
+```
+
 ## Quick Deployment Checklist
 
 - [ ] Docker installed and running
 - [ ] Docker Compose installed
 - [ ] Telegram bot created and token obtained
 - [ ] AI provider configured
+- [ ] Server password set
 - [ ] Network connectivity verified
 - [ ] Environment variables set in `.env`
 - [ ] `docker compose -f docker-compose.prebuilt.yaml up -d` successful

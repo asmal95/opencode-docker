@@ -19,6 +19,7 @@ Set your credentials:
 - `TELEGRAM_BOT_TOKEN` — Telegram bot token from [@BotFather](https://t.me/BotFather)
 - `OPENAI_COMPATIBLE_BASE_URL` — Your AI provider endpoint (see below)
 - `OPENAI_COMPATIBLE_API_KEY` — Your API key
+- `OPENCODE_SERVER_PASSWORD` — Server authentication password
 
 ### 3. Start
 
@@ -44,6 +45,18 @@ The bot works with any OpenAI-compatible API. Examples:
 | Ollama (local) | `http://host.docker.internal:11434/v1` |
 | llama.cpp | `http://YOUR_IP:8080/v1` |
 | LM Studio | `http://localhost:1234/v1` |
+
+## Server Authentication
+
+OpenCode server uses HTTP Basic Auth:
+
+```bash
+OPENCODE_SERVER_PASSWORD=your-strong-password
+```
+
+- Username: `opencode` (default)
+- The Telegram bot automatically includes the auth header
+- Protects the API from unauthorized access
 
 ## Deployment Options
 
@@ -79,7 +92,7 @@ bash deploy.sh
 ## Architecture
 
 ```
-Telegram User --> Telegram Bot (aiogram) --> OpenCode (port 4096) --> AI Provider
+Telegram User --> Telegram Bot (aiogram) --> OpenCode (port 4096, Basic Auth) --> AI Provider
 ```
 
 - **Telegram Bot**: Receives messages from Telegram, forwards to OpenCode
@@ -93,6 +106,7 @@ Telegram User --> Telegram Bot (aiogram) --> OpenCode (port 4096) --> AI Provide
 - `read_only` filesystem
 - `no-new-privileges` enabled
 - Phone-home domains blocked
+- HTTP Basic Auth on OpenCode server
 - API keys in environment variables only
 
 ## License

@@ -8,6 +8,7 @@ services:
       OPENCODE_DISABLE_AUTOUPDATE: "true"
       OPENCODE_DISABLE_MODELS_FETCH: "true"
       OPENCODE_DISABLE_SHARE: "true"
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
       OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-}
       OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-}
     volumes:
@@ -37,6 +38,7 @@ services:
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
     restart: unless-stopped
     networks:
       - opencode-net

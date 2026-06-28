@@ -43,6 +43,7 @@ docker compose -f docker-compose.prebuilt.yaml logs -f
 - Docker Compose 2.0+
 - Telegram bot token
 - AI API key (any OpenAI-compatible provider)
+- Server password (`OPENCODE_SERVER_PASSWORD`)
 
 ## Environment Variables
 
@@ -50,6 +51,15 @@ docker compose -f docker-compose.prebuilt.yaml logs -f
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=your_api_key_here
+OPENCODE_SERVER_PASSWORD=your_server_password_here
+```
+
+## Server Authentication
+
+OpenCode server uses HTTP Basic Auth to protect the API:
+
+```bash
+OPENCODE_SERVER_PASSWORD=your-strong-password
 ```
 
 ## Management
@@ -65,7 +75,7 @@ docker compose -f docker-compose.prebuilt.yaml up -d
 ## Architecture
 
 ```
-Telegram User --> Telegram Bot (aiogram) --> OpenCode API (port 4096) --> AI Provider
+Telegram User --> Telegram Bot (aiogram) --> OpenCode API (port 4096, Basic Auth) --> AI Provider
 ```
 
 ## Features
@@ -75,6 +85,7 @@ Telegram User --> Telegram Bot (aiogram) --> OpenCode API (port 4096) --> AI Pro
 - Persistent storage (volumes)
 - Auto-restart on failure
 - Production-ready
+- HTTP Basic Auth protection
 - Minimal configuration required
 
 ## Security
@@ -83,6 +94,7 @@ Telegram User --> Telegram Bot (aiogram) --> OpenCode API (port 4096) --> AI Pro
 - Isolated network
 - Read-only filesystem
 - No-new-privileges enabled
+- Server authentication (Basic Auth)
 - API keys in environment variables only
 
 ## License

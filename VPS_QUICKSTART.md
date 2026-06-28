@@ -6,6 +6,7 @@
 - Docker and Docker Compose installed
 - Telegram Bot Token
 - AI API key (any OpenAI-compatible provider)
+- Server password (for OpenCode Basic Auth)
 
 ## Installation Steps
 
@@ -41,6 +42,7 @@ services:
       OPENCODE_DISABLE_AUTOUPDATE: "true"
       OPENCODE_DISABLE_MODELS_FETCH: "true"
       OPENCODE_DISABLE_SHARE: "true"
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
       OPENAI_COMPATIBLE_BASE_URL: ${OPENAI_COMPATIBLE_BASE_URL:-}
       OPENAI_COMPATIBLE_API_KEY: ${OPENAI_COMPATIBLE_API_KEY:-}
     volumes:
@@ -60,6 +62,7 @@ services:
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
     restart: unless-stopped
     networks:
       - opencode-net
@@ -83,6 +86,7 @@ cat > .env << 'EOF'
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=your_api_key_here
+OPENCODE_SERVER_PASSWORD=your_server_password_here
 EOF
 ```
 
@@ -149,6 +153,18 @@ opencode-bot-opencode-1         asmal95/opencode-platform:latest   Up
 opencode-bot-telegram-bot-1     asmal95/telegram-bot:latest        Up
 ```
 
+## Server Authentication
+
+OpenCode server uses HTTP Basic Auth:
+
+```bash
+OPENCODE_SERVER_PASSWORD=your-strong-password
+```
+
+- Username: `opencode` (default)
+- All API requests require auth header
+- The Telegram bot automatically includes it
+
 ## Provider Examples
 
 ### OpenRouter (Cloud)
@@ -191,6 +207,14 @@ docker compose logs telegram-bot
 docker compose logs opencode
 ```
 
+### Authentication error (401)
+
+```bash
+# Check password is set in both containers
+docker compose -f docker-compose.prebuilt.yaml exec opencode env | grep SERVER_PASSWORD
+docker compose -f docker-compose.prebuilt.yaml logs telegram-bot | grep -i "401\|auth"
+```
+
 ### Provider connection issues
 
 ```bash
@@ -220,10 +244,11 @@ docker compose up -d
 ## Security Notes
 
 1. Keep `.env` file private — don't commit to git
-2. Use strong tokens
-3. Consider restricting access to port 4096 via firewall
-4. Regularly update Docker and images
-5. Monitor logs and resource usage
+2. Use strong server password for `OPENCODE_SERVER_PASSWORD`
+3. Use strong API tokens
+4. Consider restricting access to port 4096 via firewall
+5. Regularly update Docker and images
+6. Monitor logs and resource usage
 
 ## Additional Documentation
 

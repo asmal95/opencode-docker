@@ -50,6 +50,7 @@ Edit `.env`:
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
 OPENAI_COMPATIBLE_API_KEY=your_api_key_here
+OPENCODE_SERVER_PASSWORD=your_server_password_here
 ```
 
 ### Step 3: Deploy
@@ -57,6 +58,17 @@ OPENAI_COMPATIBLE_API_KEY=your_api_key_here
 ```bash
 docker compose -f docker-compose.prebuilt.yaml up -d
 ```
+
+## Server Authentication
+
+OpenCode server uses HTTP Basic Auth to protect the API:
+
+```bash
+# Default username is "opencode", change with OPENCODE_SERVER_USERNAME
+OPENCODE_SERVER_PASSWORD=your-strong-password
+```
+
+The Telegram bot automatically includes `Authorization: Basic <credentials>` header.
 
 ## Network Configuration
 
@@ -131,24 +143,24 @@ OPENAI_COMPATIBLE_API_KEY=sk-not-needed
 
 ## Troubleshooting
 
+### Authentication Error (401)
+
+```bash
+# Check server password is set
+docker compose -f docker-compose.prebuilt.yaml exec opencode env | grep SERVER_PASSWORD
+
+# Check bot config has the password
+docker compose -f docker-compose.prebuilt.yaml logs telegram-bot
+```
+
 ### Connection Refused
 
 ```bash
 # From host
-curl YOUR_BASE_URL/models
+curl http://YOUR_BASE_URL/v1/models
 
 # From container
-docker exec opencode curl YOUR_BASE_URL/models
-```
-
-### Invalid API Key
-
-```bash
-# Check environment variables
-docker compose -f docker-compose.prebuilt.yaml exec opencode env | grep OPENAI
-
-# Check config
-docker exec opencode cat /opt/opencode-config/opencode.jsonc
+docker exec opencode curl http://YOUR_BASE_URL/v1/models
 ```
 
 ### Provider Not Available
@@ -167,13 +179,14 @@ docker compose -f docker-compose.prebuilt.yaml logs opencode
 ## Best Practices
 
 1. **Security**: Never commit `.env` to git
-2. **Testing**: Test provider connectivity before deploying
-3. **Monitoring**: Monitor provider usage and costs
-4. **Updates**: Keep Docker images updated
+2. **Server Password**: Use a strong random password for `OPENCODE_SERVER_PASSWORD`
+3. **Testing**: Test provider connectivity before deploying
+4. **Monitoring**: Monitor provider usage and costs
+5. **Updates**: Keep Docker images updated
 
 ## Additional Resources
 
 - [Ollama Documentation](https://github.com/ollama/ollama)
 - [OpenRouter Documentation](https://openrouter.ai/docs)
-- [OpenCode Configuration](https://opencode.ai/docs)
+- [OpenCode Server Docs](https://opencode.ai/docs/server/)
 - [Docker Networking](https://docs.docker.com/network/)

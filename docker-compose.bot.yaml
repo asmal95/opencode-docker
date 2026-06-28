@@ -16,6 +16,7 @@ services:
     environment:
       OPENCODE_API_URL: http://opencode:4096
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
     networks:
       - opencode-net
     restart: unless-stopped
