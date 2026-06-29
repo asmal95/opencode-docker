@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import base64
 import logging
+import re
 import httpx
 from aiogram import Router, types
 from aiogram.filters import Command, CommandStart
@@ -8,6 +9,24 @@ from config import settings
 
 logger = logging.getLogger(__name__)
 router = Router()
+
+# Telegram HTML parse mode only supports these tags. Any other tag causes
+# "Bad Request: can't parse entities" errors when the AI returns raw HTML.
+_SUPPORTED_TAGS = frozenset([
+    "a", "emoji", "code", "pre", "b", "strong",
+    "i", "em", "u", "ins", "s", "strike", "del",
+    "blockquote",
+])
+
+
+def _sanitize_html(html: str) -> str:
+    """Remove HTML start/end tags that Telegram's parse_mode does not support."""
+    def _replace(m: re.Match) -> str:
+        tag = m.group(1).lower()
+        if tag in _SUPPORTED_TAGS:
+            return m.group(0)
+        return ""
+    return re.sub(r"</?([a-zA-Z][a-zA-Z0-9]*)(\s[^>]*)?/?>", _replace, html)
 
 # Per-chat session tracking
 _session_map: dict[int, str] = {}
@@ -256,6 +275,6 @@ async def handle_message(message: types.Message):
         response_text = text_parts[0].get("text", "")
         if response_text:
             for chunk in [response_text[i:i+4096] for i in range(0, len(response_text), 4096)]:
-                await message.answer(chunk)
+                await message.answer(_sanitize_html(chunk))
             return
     await message.answer("Нет текстового ответа от OpenCode")

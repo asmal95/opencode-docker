@@ -5,6 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from handlers import message_handler
+from handlers.retry_middleware import RetryMiddleware
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +22,8 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
     dp = Dispatcher()
-    
+    dp.message.middleware(RetryMiddleware())
+
     dp.include_router(message_handler.router)
     
     logger.info("Starting Telegram bot...")
