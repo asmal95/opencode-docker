@@ -25,11 +25,9 @@ Two containers on shared Docker network `opencode-net`:
 | `docker-compose.yaml` | Local build from Dockerfile |
 | `docker-compose.override-bot.yaml` | Override for bot scenario (used with `docker-compose.yaml`) |
 | `Dockerfile` | Base image (opencode-base stage) |
-| `Dockerfile.full` | Extended image with dev tools |
 | `configs/bot/opencode.jsonc` | Provider config — single `openai-compatible` provider |
 | `configs/base/opencode.jsonc` | Minimal placeholder config |
 | `sidecars/telegram-bot/` | Bot sidecar (Python/aiogram) |
-| `entrypoint.sh` | UID/GID mapping + privilege dropping |
 
 ## Deployment Modes
 
@@ -62,14 +60,27 @@ The config uses `{env:VAR}` syntax for env var injection:
 
 ```jsonc
 {
-  "providers": {
+  "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": ["openai-compatible"],
+  "provider": {
     "openai-compatible": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
         "baseURL": "{env:OPENAI_COMPATIBLE_BASE_URL}",
         "apiKey": "{env:OPENAI_COMPATIBLE_API_KEY}"
+      },
+      "models": {
+        "deepseek/deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash"
+        }
       }
     }
+  },
+  "model": "openai-compatible/deepseek/deepseek-v4-flash",
+  "permission": {
+    "write": "allow",
+    "edit": "allow",
+    "bash": "allow"
   }
 }
 ```

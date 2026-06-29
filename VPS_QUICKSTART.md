@@ -95,7 +95,9 @@ EOF
 ```bash
 cat > configs/bot/opencode.jsonc << 'EOF'
 {
-  "providers": {
+  "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": ["openai-compatible"],
+  "provider": {
     "openai-compatible": {
       "npm": "@ai-sdk/openai-compatible",
       "options": {
@@ -104,15 +106,12 @@ cat > configs/bot/opencode.jsonc << 'EOF'
       }
     }
   },
-  "permissions": {
+  "model": "openai-compatible/deepseek/deepseek-v4-flash",
+  "permission": {
     "write": "allow",
     "edit": "allow",
-    "bash": "ask"
-  },
-  "tools": {
-    "allowed": ["*"]
-  },
-  "headless": true
+    "bash": "allow"
+  }
 }
 EOF
 ```
@@ -252,6 +251,4 @@ docker compose up -d
 
 ## Additional Documentation
 
-- **Custom Providers**: `docs/CUSTOM_PROVIDERS.md`
-- **Cheat Sheet**: `docs/PROVIDER_CHEATSHEET.md`
 - **Main README**: `README.md`

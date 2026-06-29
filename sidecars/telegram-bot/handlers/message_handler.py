@@ -31,28 +31,35 @@ def _sanitize_html(html: str) -> str:
 # Per-chat session tracking
 _session_map: dict[int, str] = {}
 
-
-def _auth_header() -> dict[str, str]:
-    credentials = f"opencode:{settings.OPENCODE_SERVER_PASSWORD}"
-    return {"Authorization": f"Basic {base64.b64encode(credentials.encode()).decode()}"}
+_http_client: httpx.AsyncClient | None = None
 
 
 def _get_client() -> httpx.AsyncClient:
-    headers = _auth_header()
-    return httpx.AsyncClient(
-        base_url=settings.OPENCODE_API_URL,
-        timeout=httpx.Timeout(300.0, connect=10.0),
-        headers=headers,
-    )
+    global _http_client
+    if _http_client is None:
+        credentials = f"opencode:{settings.OPENCODE_SERVER_PASSWORD}"
+        headers = {"Authorization": f"Basic {base64.b64encode(credentials.encode()).decode()}"}
+        _http_client = httpx.AsyncClient(
+            base_url=settings.OPENCODE_API_URL,
+            timeout=httpx.Timeout(300.0, connect=10.0),
+            headers=headers,
+        )
+    return _http_client
+
+
+async def close_client() -> None:
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
 
 
 async def get_or_create_session(chat_id: int) -> str | None:
     if chat_id in _session_map:
         return _session_map[chat_id]
     # Try to find an existing session for this chat (by title)
-    client = _get_client()
     try:
-        resp = await client.get("/session")
+        resp = await _get_client().get("/session")
         resp.raise_for_status()
         sessions = resp.json()
         title = f"chat:{chat_id}"
@@ -62,8 +69,6 @@ async def get_or_create_session(chat_id: int) -> str | None:
                 return s["id"]
     except Exception as e:
         logger.error(f"Error finding session for chat {chat_id}: {e}")
-    finally:
-        await client.aclose()
     return None
 
 
@@ -71,13 +76,12 @@ async def create_session(chat_id: int) -> str | None:
     if chat_id in _session_map:
         del _session_map[chat_id]
     title = f"chat:{chat_id}"
-    client = _get_client()
     try:
         body = {"title": title}
         params = {}
         if settings.PROJECT_DIR:
             params["directory"] = settings.PROJECT_DIR
-        resp = await client.post("/session", json=body, params=params)
+        resp = await _get_client().post("/session", json=body, params=params)
         resp.raise_for_status()
         session = resp.json()
         sid = session.get("id")
@@ -87,8 +91,6 @@ async def create_session(chat_id: int) -> str | None:
     except Exception as e:
         logger.error(f"Error creating session for chat {chat_id}: {e}")
         return None
-    finally:
-        await client.aclose()
 
 
 def _format_session_list(sessions: list) -> str:
@@ -145,9 +147,8 @@ async def cmd_abort(message: types.Message):
     if not sid:
         await message.answer("Нет активной сессии. Создайте /new")
         return
-    client = _get_client()
     try:
-        resp = await client.post(f"/session/{sid}/abort")
+        resp = await _get_client().post(f"/session/{sid}/abort")
         resp.raise_for_status()
         await message.answer("Сессия прервана")
     except httpx.HTTPStatusError as e:
@@ -159,8 +160,6 @@ async def cmd_abort(message: types.Message):
     except Exception as e:
         logger.error(f"Error aborting session {sid}: {e}")
         await message.answer(f"Ошибка прерывания: {str(e)}")
-    finally:
-        await client.aclose()
 
 
 @router.message(Command("sessions"))
@@ -170,9 +169,8 @@ async def cmd_sessions(message: types.Message):
     if allowed and chat_id not in allowed:
         await message.answer("Доступ запрещён")
         return
-    client = _get_client()
     try:
-        resp = await client.get("/session")
+        resp = await _get_client().get("/session")
         resp.raise_for_status()
         sessions = resp.json()
         title_prefix = f"chat:{chat_id}"
@@ -184,8 +182,6 @@ async def cmd_sessions(message: types.Message):
     except Exception as e:
         logger.error(f"Error listing sessions: {e}")
         await message.answer(f"Ошибка: {str(e)}")
-    finally:
-        await client.aclose()
 
 
 @router.message(Command("clean"))
@@ -195,10 +191,9 @@ async def cmd_clean(message: types.Message):
     if allowed and chat_id not in allowed:
         await message.answer("Доступ запрещён")
         return
-    client = _get_client()
     deleted_count = 0
     try:
-        resp = await client.get("/session")
+        resp = await _get_client().get("/session")
         resp.raise_for_status()
         sessions = resp.json()
         title_prefix = f"chat:{chat_id}"
@@ -208,7 +203,7 @@ async def cmd_clean(message: types.Message):
             return
         for s in to_delete:
             try:
-                dresp = await client.delete(f"/session/{s['id']}")
+                dresp = await _get_client().delete(f"/session/{s['id']}")
                 if dresp.status_code == 200:
                     deleted_count += 1
                     if _session_map.get(chat_id) == s["id"]:
@@ -219,8 +214,6 @@ async def cmd_clean(message: types.Message):
     except Exception as e:
         logger.error(f"Error cleaning sessions: {e}")
         await message.answer(f"Ошибка: {str(e)}")
-    finally:
-        await client.aclose()
 
 
 @router.message()
@@ -234,9 +227,8 @@ async def handle_message(message: types.Message):
         await message.answer("Нет сессий. Создайте /new")
         return
     # Check if session is busy
-    client = _get_client()
     try:
-        resp = await client.get("/session/status")
+        resp = await _get_client().get("/session/status")
         resp.raise_for_status()
         status_map = resp.json()
         if status_map.get(sid, {}).get("type") == "busy":
@@ -244,12 +236,9 @@ async def handle_message(message: types.Message):
             return
     except Exception as e:
         logger.error(f"Error checking session status: {e}")
-    finally:
-        await client.aclose()
     # Send message
-    client = _get_client()
     try:
-        resp = await client.post(
+        resp = await _get_client().post(
             f"/session/{sid}/message",
             json={"parts": [{"type": "text", "text": message.text}]},
         )
@@ -266,8 +255,6 @@ async def handle_message(message: types.Message):
         logger.error(f"Error sending message: {e}")
         await message.answer(f"Ошибка отправки: {str(e)}")
         return
-    finally:
-        await client.aclose()
     # Parse response
     parts = response_data.get("parts", [])
     text_parts = [p for p in parts if p.get("type") == "text"]

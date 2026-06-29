@@ -17,6 +17,11 @@ services:
       OPENCODE_API_URL: http://opencode:4096
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     networks:
       - opencode-net
     restart: unless-stopped

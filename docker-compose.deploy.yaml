@@ -31,6 +31,11 @@ services:
       - SETUID
       - SETGID
       - NET_BIND_SERVICE
+    extra_hosts:
+      - "app.opencode.ai:0.0.0.0"
+      - "api.opencode.ai:0.0.0.0"
+      - "opncd.ai:0.0.0.0"
+      - "models.dev:0.0.0.0"
     restart: unless-stopped
     networks:
       - opencode-net
@@ -43,6 +48,11 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - opencode-net

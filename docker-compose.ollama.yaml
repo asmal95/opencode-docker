@@ -20,6 +20,10 @@ services:
       - opencode-workspace:/workspace
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "app.opencode.ai:0.0.0.0"
+      - "api.opencode.ai:0.0.0.0"
+      - "opncd.ai:0.0.0.0"
+      - "models.dev:0.0.0.0"
     read_only: true
     tmpfs:
       - /tmp
@@ -46,6 +50,11 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - opencode-net

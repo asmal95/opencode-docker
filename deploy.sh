@@ -7,25 +7,13 @@ echo "=================================================="
 # Check if .env exists
 if [ ! -f .env ]; then
     echo "Error: .env file not found!"
-    echo "Creating .env from template..."
-    cat > .env << 'EOF'
-# Telegram Bot Token (required)
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-
-# OpenAI-Compatible API Configuration
-OPENAI_COMPATIBLE_BASE_URL=https://api.openrouter.ai/v1
-OPENAI_COMPATIBLE_API_KEY=your_api_key_here
-
-# OpenCode Server Authentication
-OPENCODE_SERVER_PASSWORD=your_server_password_here
-
-# User/Group ID mapping
-PUID=1000
-PGID=1000
-
-# Project directory
-PROJECT_DIR=.
-EOF
+    echo "Creating .env from .env.example..."
+    if [ -f .env.example ]; then
+        cp .env.example .env
+    else
+        echo "No .env.example template found. Please create .env with your credentials."
+        exit 1
+    fi
     echo "Please edit .env with your API keys before running this script again"
     echo "  nano .env"
     exit 1
@@ -40,12 +28,11 @@ fi
 
 # Check if config exists
 if [ ! -f configs/bot/opencode.jsonc ]; then
-    echo "Creating provider configuration..."
-    mkdir -p configs/bot
-    echo "Provider configuration found"
+    echo "Warning: configs/bot/opencode.jsonc not found. The bot may not work."
+    echo "Please create the config file or copy from configs/base/opencode.jsonc"
+else
+    echo "Configuration found"
 fi
-
-echo "Configuration found"
 
 # Pull latest images
 echo "Pulling latest Docker images..."

@@ -77,7 +77,7 @@ OPENCODE_SERVER_PASSWORD=your-strong-password
 |------|----------|
 | `docker-compose.deploy.yaml` | DockerHub images (recommended) |
 | `docker-compose.ollama.yaml` | Prebuilt + `host.docker.internal` support |
-| `docker-compose.yaml` | Build from source |
+| `docker-compose.yaml` | Build from source (with bot) |
 
 ## Management
 
