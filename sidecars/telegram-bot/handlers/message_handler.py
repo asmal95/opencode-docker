@@ -1,14 +1,26 @@
 #!/usr/bin/env python3
+import asyncio
 import base64
 import logging
 import re
 import httpx
-from aiogram import Router, types
+from aiogram import Bot, Router, types
 from aiogram.filters import Command, CommandStart
 from config import settings
 
 logger = logging.getLogger(__name__)
-router = Router()
+
+
+def router(bot: Bot) -> Router:
+    r = Router()
+    r.message.register(cmd_start, CommandStart())
+    r.message.register(cmd_help, Command("help"))
+    r.message.register(cmd_new, Command("new"))
+    r.message.register(cmd_abort, Command("abort"))
+    r.message.register(cmd_sessions, Command("sessions"))
+    r.message.register(cmd_clean, Command("clean"))
+    r.message.register(handle_message)
+    return r
 
 # Telegram HTML parse mode only supports these tags. Any other tag causes
 # "Bad Request: can't parse entities" errors when the AI returns raw HTML.
@@ -104,7 +116,6 @@ def _format_session_list(sessions: list) -> str:
     return "\n".join(lines)
 
 
-@router.message(CommandStart())
 async def cmd_start(message: types.Message):
     await message.answer(
         "Привет! Я OpenCode AI-ассистент.\n\n"
@@ -117,12 +128,10 @@ async def cmd_start(message: types.Message):
     )
 
 
-@router.message(Command("help"))
 async def cmd_help(message: types.Message):
     await cmd_start(message)
 
 
-@router.message(Command("new"))
 async def cmd_new(message: types.Message):
     chat_id = message.chat.id
     allowed = settings.allowed_chat_ids_set
@@ -136,7 +145,6 @@ async def cmd_new(message: types.Message):
         await message.answer("Не удалось создать сессию")
 
 
-@router.message(Command("abort"))
 async def cmd_abort(message: types.Message):
     chat_id = message.chat.id
     allowed = settings.allowed_chat_ids_set
@@ -162,7 +170,6 @@ async def cmd_abort(message: types.Message):
         await message.answer(f"Ошибка прерывания: {str(e)}")
 
 
-@router.message(Command("sessions"))
 async def cmd_sessions(message: types.Message):
     chat_id = message.chat.id
     allowed = settings.allowed_chat_ids_set
@@ -184,7 +191,6 @@ async def cmd_sessions(message: types.Message):
         await message.answer(f"Ошибка: {str(e)}")
 
 
-@router.message(Command("clean"))
 async def cmd_clean(message: types.Message):
     chat_id = message.chat.id
     allowed = settings.allowed_chat_ids_set
@@ -216,52 +222,77 @@ async def cmd_clean(message: types.Message):
         await message.answer(f"Ошибка: {str(e)}")
 
 
-@router.message()
-async def handle_message(message: types.Message):
+async def _typing_loop(bot: Bot, chat_id: int, stop: asyncio.Event) -> None:
+    try:
+        await bot.send_chat_action(chat_id, "typing")
+        while not stop.is_set():
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=4.0)
+            except asyncio.TimeoutError:
+                pass
+            if not stop.is_set():
+                await bot.send_chat_action(chat_id, "typing")
+    except Exception:
+        pass
+
+
+async def handle_message(message: types.Message, bot: Bot):
     chat_id = message.chat.id
     allowed = settings.allowed_chat_ids_set
     if allowed and chat_id not in allowed:
         return
-    sid = await get_or_create_session(chat_id)
-    if not sid:
-        await message.answer("Нет сессий. Создайте /new")
-        return
-    # Check if session is busy
+    stop_typing = asyncio.Event()
+    typing_task = asyncio.create_task(_typing_loop(bot, chat_id, stop_typing))
     try:
-        resp = await _get_client().get("/session/status")
-        resp.raise_for_status()
-        status_map = resp.json()
-        if status_map.get(sid, {}).get("type") == "busy":
-            await message.answer("Сессия сейчас занята. Подождите или используйте /abort")
+        sid = await get_or_create_session(chat_id)
+        if not sid:
+            await message.answer("Нет сессий. Создайте /new")
             return
-    except Exception as e:
-        logger.error(f"Error checking session status: {e}")
-    # Send message
-    try:
-        resp = await _get_client().post(
-            f"/session/{sid}/message",
-            json={"parts": [{"type": "text", "text": message.text}]},
-        )
-        resp.raise_for_status()
-        response_data = resp.json()
-    except httpx.HTTPStatusError as e:
-        if e.response.status_code == 404:
-            del _session_map[chat_id]
-            await message.answer("Сессия не найдена. Создайте /new")
-        else:
-            await message.answer(f"Ошибка: {e.response.status_code} — {str(e)}")
-        return
-    except Exception as e:
-        logger.error(f"Error sending message: {e}")
-        await message.answer(f"Ошибка отправки: {str(e)}")
-        return
-    # Parse response
-    parts = response_data.get("parts", [])
-    text_parts = [p for p in parts if p.get("type") == "text"]
-    if text_parts:
-        response_text = text_parts[0].get("text", "")
-        if response_text:
-            for chunk in [response_text[i:i+4096] for i in range(0, len(response_text), 4096)]:
-                await message.answer(_sanitize_html(chunk))
+        # Check if session is busy
+        try:
+            resp = await _get_client().get("/session/status")
+            resp.raise_for_status()
+            status_map = resp.json()
+            if status_map.get(sid, {}).get("type") == "busy":
+                await message.answer("Сессия сейчас занята. Подождите или используйте /abort")
+                return
+        except Exception as e:
+            logger.error(f"Error checking session status: {e}")
+        # Send message
+        try:
+            resp = await _get_client().post(
+                f"/session/{sid}/message",
+                json={"parts": [{"type": "text", "text": message.text}]},
+            )
+            resp.raise_for_status()
+            response_data = resp.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                del _session_map[chat_id]
+                await message.answer("Сессия не найдена. Создайте /new")
+            else:
+                await message.answer(f"Ошибка: {e.response.status_code} — {str(e)}")
             return
-    await message.answer("Нет текстового ответа от OpenCode")
+        except Exception as e:
+            logger.error(f"Error sending message: {e}")
+            await message.answer(f"Ошибка отправки: {str(e)}")
+            return
+        # Parse response
+        parts = response_data.get("parts", [])
+        text_parts = [p for p in parts if p.get("type") == "text"]
+        if text_parts:
+            response_text = text_parts[0].get("text", "")
+            if response_text:
+                for chunk in [response_text[i:i+4096] for i in range(0, len(response_text), 4096)]:
+                    await message.answer(_sanitize_html(chunk))
+                    await bot.send_chat_action(chat_id, "typing")
+                    await asyncio.sleep(0.5)
+                return
+        await message.answer("Нет текстового ответа от OpenCode")
+    finally:
+        stop_typing.set()
+        typing_task.cancel()
+        try:
+            await typing_task
+        except asyncio.CancelledError:
+            pass

@@ -37,7 +37,7 @@ async def main():
     dp = Dispatcher()
     dp.message.middleware(RetryMiddleware())
 
-    dp.include_router(message_handler.router)
+    dp.include_router(message_handler.router(bot))
     
     logger.info("Starting Telegram bot...")
     await bot.delete_webhook(drop_pending_updates=True)
