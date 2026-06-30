@@ -59,6 +59,18 @@ async def main():
     from mcp_server import set_scheduler
     set_scheduler(scheduler)
 
+    # Create wakeup event and dispatch callback for background worker
+    import background_worker as _bw
+    _bw.wakeup = asyncio.Event()
+
+    async def _dispatch_job_wrapper(job: dict) -> None:
+        from background_worker import _dispatch_job
+        await _dispatch_job(bot, scheduler, job)
+        _bw.wakeup.set()
+
+    from mcp_server import set_dispatch_callback
+    set_dispatch_callback(_dispatch_job_wrapper)
+
     # Start background worker with bot and scheduler
     from background_worker import run_scheduler_loop
     worker_task = asyncio.create_task(

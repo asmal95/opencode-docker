@@ -32,13 +32,14 @@ class CronScheduler:
             next_run TEXT NOT NULL,
             last_run TEXT,
             run_count INTEGER DEFAULT 0,
+            is_running INTEGER DEFAULT 0,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         )
     """
 
     CREATE_INDEX_SQL = """
-        CREATE INDEX IF NOT EXISTS idx_next_run ON cron_jobs(next_run, enabled)
+        CREATE INDEX IF NOT EXISTS idx_next_run ON cron_jobs(next_run, enabled, is_running)
     """
 
     def __init__(self, db_path: str = DEFAULT_DB_PATH):
@@ -71,6 +72,14 @@ class CronScheduler:
             await self._db.close()
             self._db = None
             logger.info("Cron scheduler closed")
+
+    def wakeup(self) -> None:
+        """Wake up the background worker to check for due jobs immediately."""
+        from background_worker import wakeup
+        if wakeup.is_set():
+            wakeup.clear()
+        wakeup.set()
+        logger.info("Background worker woken up")
 
     async def add_job(
         self,
@@ -115,6 +124,8 @@ class CronScheduler:
             ),
         )
         await self.db.commit()
+
+        self.wakeup()
 
         return {
             "jobId": job_id,
@@ -161,6 +172,8 @@ class CronScheduler:
 
         await self.db.execute("DELETE FROM cron_jobs WHERE id = ?", (job_id,))
         await self.db.commit()
+
+        self.wakeup()
 
         return {
             "success": True,
@@ -216,34 +229,60 @@ class CronScheduler:
             })
         return jobs
 
-    async def mark_job_ran(self, job_id: str) -> None:
-        """Mark a job as run: update next_run, last_run, and run_count."""
+    async def mark_job_ran(self, job_id: str, completed: bool = False) -> None:
+        """Mark a job as run (phase 1: is_running=1) or completed (phase 2: last_run, run_count).
+
+        Phase 1 (completed=False): marks job as running, calculates next_run.
+        Phase 2 (completed=True): updates last_run, increments run_count.
+        """
         now = datetime.now(timezone.utc)
         now_iso = now.isoformat()
 
-        # Recalculate next_run from schedule
-        cursor = await self.db.execute("SELECT schedule FROM cron_jobs WHERE id = ?", (job_id,))
-        row = await cursor.fetchone()
-        if not row:
-            logger.warning(f"Cron job '{job_id}' not found for mark_job_ran")
+        if not completed:
+            cursor = await self.db.execute("SELECT schedule FROM cron_jobs WHERE id = ?", (job_id,))
+            row = await cursor.fetchone()
+            if not row:
+                logger.warning(f"Cron job '{job_id}' not found for mark_job_ran phase 1")
+                return
+
+            try:
+                iterator = croniter(row["schedule"], now)
+                next_run = iterator.get_next(datetime)
+                next_run_iso = next_run.isoformat()
+            except (ValueError, KeyError) as e:
+                logger.error(f"Invalid schedule for job {job_id} ({row['schedule']}): {e}. Disabling job.")
+                await self.db.execute("UPDATE cron_jobs SET enabled = 0, updated_at = ? WHERE id = ?", (now_iso, job_id))
+                await self.db.commit()
+                return
+
+            await self.db.execute(
+                """
+                UPDATE cron_jobs
+                SET next_run = ?, is_running = 1, updated_at = ?
+                WHERE id = ?
+                """,
+                (next_run_iso, now_iso, job_id),
+            )
+            await self.db.commit()
             return
 
-        try:
-            iterator = croniter(row["schedule"], now)
-            next_run = iterator.get_next(datetime)
-            next_run_iso = next_run.isoformat()
-        except (ValueError, KeyError) as e:
-            logger.error(f"Invalid schedule for job {job_id} ({row['schedule']}): {e}. Disabling job.")
-            await self.db.execute("UPDATE cron_jobs SET enabled = 0, updated_at = ? WHERE id = ?", (now_iso, job_id))
-            await self.db.commit()
+        cursor = await self.db.execute(
+            "SELECT is_running FROM cron_jobs WHERE id = ?", (job_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            logger.warning(f"Cron job '{job_id}' not found for mark_job_ran phase 2")
+            return
+        if not row["is_running"]:
+            logger.warning(f"Cron job '{job_id}' not in running state for phase 2")
             return
 
         await self.db.execute(
             """
             UPDATE cron_jobs
-            SET next_run = ?, last_run = ?, run_count = run_count + 1, updated_at = ?
+            SET last_run = ?, run_count = run_count + 1, is_running = 0, updated_at = ?
             WHERE id = ?
             """,
-            (next_run_iso, now_iso, now_iso, job_id),
+            (now_iso, now_iso, job_id),
         )
         await self.db.commit()

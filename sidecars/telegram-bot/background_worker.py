@@ -24,6 +24,9 @@ RETRY_BASE_DELAY = 5  # seconds, exponential backoff base
 # Per-chat session tracking
 _session_map: dict[int, str] = {}
 
+# Wakeup event for background worker (set from cron_scheduler or bot)
+wakeup: asyncio.Event = asyncio.Event()
+
 
 async def _get_or_create_session(bot: Bot, chat_id: int) -> str | None:
     """Get or create a session for the given chat ID."""
@@ -85,7 +88,13 @@ async def _call_opencode(prompt: str, session_id: str) -> str | None:
 
 
 async def _dispatch_job(bot: Bot, scheduler: CronScheduler, job: dict) -> None:
-    """Dispatch a single cron job to OpenCode and deliver result."""
+    """Dispatch a single cron job to OpenCode and deliver result.
+
+    Uses a two-phase commit:
+      Phase 1: mark is_running=1 and calculate next_run (before dispatch)
+      Phase 2: mark last_run, run_count, is_running=0 (after successful delivery)
+    This prevents duplicate dispatch if the worker crashes between get and mark.
+    """
     job_id = job["jobId"]
     job_name = job["name"]
     prompt = job["payload"].get("prompt", "")
@@ -94,16 +103,42 @@ async def _dispatch_job(bot: Bot, scheduler: CronScheduler, job: dict) -> None:
     channel = delivery.get("channel", "telegram")
     to_target = delivery.get("to", "")
 
-    if channel != "telegram":
-        logger.warning(f"Unsupported delivery channel: {channel}. Skipping job {job_id}")
-        return
+    # Support "chat:<id>", "user:<id>", "user:current", or direct numeric chat_id
+    chat_id = None
 
-    if not to_target.startswith("chat:"):
-        logger.error(f"Invalid delivery target format: {to_target}. Expected 'chat:<id>'")
-        return
+    if delivery.get("chat_id"):
+        try:
+            chat_id = int(delivery["chat_id"])
+        except (ValueError, TypeError):
+            pass
 
-    chat_id = int(to_target.split("chat:")[1])
+    if chat_id is None and to_target.startswith("chat:"):
+        try:
+            chat_id = int(to_target.split("chat:")[1])
+        except ValueError:
+            pass
+
+    if chat_id is None and to_target.startswith("user:"):
+        user_val = to_target.split("user:")[1]
+        if user_val == "current":
+            prompt_payload = job["payload"].get("prompt", "")
+            try:
+                chat_id = int(prompt_payload.split("Chat ID: ")[1].split(" ")[0])
+            except (ValueError, IndexError, AttributeError):
+                pass
+        else:
+            try:
+                chat_id = int(user_val)
+            except ValueError:
+                pass
+
+    if chat_id is None:
+        logger.error(f"Invalid delivery target. Got 'to={to_target}', delivery={delivery}. Expected 'chat:<id>', 'user:<id>', 'user:current' (with Chat ID in prompt), or 'chat_id' in delivery.")
+        return
     logger.info(f"Dispatching cron job '{job_name}' to chat {chat_id}")
+
+    # Phase 1: mark job as running (sets next_run, is_running=1)
+    await scheduler.mark_job_ran(job_id, completed=False)
 
     session_id = await _get_or_create_session(bot, chat_id)
     if not session_id:
@@ -132,12 +167,29 @@ async def _dispatch_job(bot: Bot, scheduler: CronScheduler, job: dict) -> None:
 
     logger.info(f"Cron job '{job_name}' delivered to chat {chat_id}")
 
-    # Mark job as ran
-    await scheduler.mark_job_ran(job_id)
+    # Phase 2: mark job as completed
+    await scheduler.mark_job_ran(job_id, completed=True)
+
+
+async def _dispatch_job_with_timeout(bot: Bot, scheduler: CronScheduler, job: dict) -> None:
+    """Dispatch a job with an overall timeout to prevent indefinite blocking."""
+    try:
+        await asyncio.wait_for(
+            _dispatch_job(bot, scheduler, job),
+            timeout=600.0,
+        )
+    except asyncio.TimeoutError:
+        logger.error(f"Job dispatch timed out for {job['jobId']} ({job['name']})")
+    except Exception as e:
+        logger.error(f"Unexpected error dispatching job {job['jobId']}: {e}")
 
 
 async def run_scheduler_loop(bot: Bot, scheduler: CronScheduler) -> None:
-    """Main loop: check for due cron jobs every 60 seconds."""
+    """Main loop: check for due cron jobs, with wakeup support.
+
+    Sleeps up to 60 seconds between checks, but wakes immediately when
+    wakeup.set() is called (e.g., after cron_add, cron_delete, cron_run).
+    """
     logger.info("Background worker loop started")
 
     while True:
@@ -146,8 +198,22 @@ async def run_scheduler_loop(bot: Bot, scheduler: CronScheduler) -> None:
             if due_jobs:
                 logger.info(f"Found {len(due_jobs)} due cron job(s)")
                 for job in due_jobs:
-                    await _dispatch_job(bot, scheduler, job)
+                    await _dispatch_job_with_timeout(bot, scheduler, job)
+                    wakeup.set()
         except Exception as e:
             logger.error(f"Error in scheduler loop: {e}")
 
-        await asyncio.sleep(60)
+        # Wait for wakeup or 60s timeout, whichever comes first.
+        # asyncio.wait ensures we don't miss a wakeup that fires right after clear().
+        sleep_task = asyncio.create_task(asyncio.sleep(60.0))
+        wait_task = asyncio.create_task(wakeup.wait())
+        done, pending = await asyncio.wait(
+            {sleep_task, wait_task},
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+        for task in pending:
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):
+                pass

@@ -265,11 +265,15 @@ async def handle_message(message: types.Message, bot: Bot):
                 return
         except Exception as e:
             logger.error(f"Error checking session status: {e}")
+        # Add chat_id to context via system hint
+        chat_hint = f"\n\n[Chat ID: {chat_id} - use this in cron delivery chat_id]"
+        full_text = message.text + chat_hint
+
         # Send message
         try:
             resp = await _get_client().post(
                 f"/session/{sid}/message",
-                json={"parts": [{"type": "text", "text": message.text}]},
+                json={"parts": [{"type": "text", "text": full_text}]},
             )
             resp.raise_for_status()
             response_data = resp.json()

@@ -19,7 +19,31 @@
   "permission": {
     "write": "allow",
     "edit": "allow",
-    "bash": "allow"
+    "bash": "allow",
+    "external_directory": {
+      "/**": "allow"
+    }
+  },
+  "agent": {
+    "default": {
+      "mode": "primary",
+      "description": "Telegram assistant that handles user requests, scheduling, and task execution. Use cron_add for reminders and scheduled tasks.",
+      "prompt": "{file:./prompts/agent.md}",
+      "permission": {
+        "write": "allow",
+        "edit": "allow",
+        "bash": "allow",
+        "task": "allow",
+        "webfetch": "allow",
+        "lsp": "allow",
+        "skill": "allow",
+        "question": "allow",
+        "mcp_gateway_cron_add": "allow",
+        "mcp_gateway_cron_list": "allow",
+        "mcp_gateway_cron_delete": "allow",
+        "mcp_gateway_cron_run": "allow"
+      }
+    }
   },
   "mcp": {
     "gateway": {
