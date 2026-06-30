@@ -9,7 +9,9 @@ import logging
 from typing import Any, Callable, Awaitable
 
 from fastmcp import FastMCP
-from fastmcp.server import Context
+from fastmcp.exceptions import ToolError
+from fastmcp.server.dependencies import get_http_headers
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 from cron_scheduler import CronScheduler
 
 logger = logging.getLogger(__name__)
@@ -40,8 +42,27 @@ async def get_scheduler() -> CronScheduler:
     return _scheduler
 
 
+class TokenAuth(Middleware):
+    """Validates Bearer token from Authorization header on every tool call."""
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        from config import settings
+        token = settings.MCP_SERVER_TOKEN
+        if not token:
+            return await call_next(context)
+
+        headers = get_http_headers() or {}
+        auth = headers.get("authorization", "")
+        expected = f"Bearer {token}"
+        if auth != expected:
+            raise ToolError("Unauthorized: invalid or missing MCP server token")
+
+        return await call_next(context)
+
+
 # Create FastMCP server instance
 mcp = FastMCP("opencode-gateway")
+mcp.add_middleware(TokenAuth())
 
 
 def _parse_json(value: Any) -> dict:
@@ -54,24 +75,6 @@ def _parse_json(value: Any) -> dict:
         except (json.JSONDecodeError, TypeError):
             return {}
     return {}
-
-
-async def _validate_token(ctx: Context) -> bool:
-    """Validate MCP server token from request headers."""
-    from config import settings
-    token = settings.MCP_SERVER_TOKEN
-    if not token:
-        return True
-    headers = dict(ctx.request.headers) if hasattr(ctx, 'request') and ctx.request else {}
-    found = None
-    for k, v in headers.items():
-        if k.lower() == "authorization":
-            found = v
-            break
-    expected = f"Bearer {token}"
-    if found != expected:
-        return False
-    return True
 
 
 @mcp.tool()
@@ -99,9 +102,6 @@ async def cron_add(
     Returns:
         Dict with jobId, schedule, next_run, and message confirming creation.
     """
-    if not await _validate_token(mcp.context):
-        return {"error": "Unauthorized: invalid or missing MCP server token"}
-
     scheduler = await get_scheduler()
     payload_dict = _parse_json(payload)
     delivery_dict = _parse_json(delivery)
@@ -120,9 +120,6 @@ async def cron_list(enabled_only: bool = False) -> list[dict[str, Any]]:
     Returns:
         List of job dicts: {jobId, name, schedule, next_run, enabled, run_count, ...}
     """
-    if not await _validate_token(mcp.context):
-        return [{"error": "Unauthorized: invalid or missing MCP server token"}]
-
     scheduler = await get_scheduler()
     jobs = await scheduler.list_jobs(enabled_only=enabled_only)
     logger.info(f"Cron jobs listed: {len(jobs)} total, {sum(1 for j in jobs if j['enabled'])} enabled")
@@ -139,9 +136,6 @@ async def cron_delete(job_id: str) -> dict[str, Any]:
     Returns:
         Dict with success status and deletion confirmation message
     """
-    if not await _validate_token(mcp.context):
-        return {"error": "Unauthorized: invalid or missing MCP server token"}
-
     scheduler = await get_scheduler()
     result = await scheduler.delete_job(job_id)
     logger.info(f"Cron job deleted: {job_id}")
@@ -160,9 +154,6 @@ async def cron_run(job_id: str) -> dict[str, Any]:
     Returns:
         Dict with jobId, name, dispatched=True, and confirmation message
     """
-    if not await _validate_token(mcp.context):
-        return {"error": "Unauthorized: invalid or missing MCP server token"}
-
     scheduler = await get_scheduler()
     job = await scheduler.run_job(job_id)
     logger.info(f"Cron job manually triggered: {job['jobId']} ({job['name']})")

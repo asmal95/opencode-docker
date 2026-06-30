@@ -24,6 +24,7 @@
       "/**": "allow"
     }
   },
+  "default_agent": "default",
   "agent": {
     "default": {
       "mode": "primary",
@@ -38,10 +39,10 @@
         "lsp": "allow",
         "skill": "allow",
         "question": "allow",
-        "mcp_gateway_cron_add": "allow",
-        "mcp_gateway_cron_list": "allow",
-        "mcp_gateway_cron_delete": "allow",
-        "mcp_gateway_cron_run": "allow"
+        "gateway_cron_add": "allow",
+        "gateway_cron_list": "allow",
+        "gateway_cron_delete": "allow",
+        "gateway_cron_run": "allow"
       }
     }
   },
