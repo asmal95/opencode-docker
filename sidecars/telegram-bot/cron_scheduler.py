@@ -3,7 +3,6 @@
 
 Manages scheduled cron jobs: create, list, delete, run, and next-run calculation.
 """
-import asyncio
 import json
 import logging
 import uuid
@@ -15,10 +14,7 @@ from croniter import croniter
 
 logger = logging.getLogger(__name__)
 
-# Schema version for future migrations
-SCHEMA_VERSION = 1
-
-# Default DB path (can be overridden via MCP_SERVER_DB env var)
+# Default DB path (passed via CronScheduler(db_path) constructor)
 DEFAULT_DB_PATH = "/opt/bot/cron.db"
 
 
@@ -229,6 +225,7 @@ class CronScheduler:
         cursor = await self.db.execute("SELECT schedule FROM cron_jobs WHERE id = ?", (job_id,))
         row = await cursor.fetchone()
         if not row:
+            logger.warning(f"Cron job '{job_id}' not found for mark_job_ran")
             return
 
         try:
