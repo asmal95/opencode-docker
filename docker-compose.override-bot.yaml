@@ -23,7 +23,7 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/mcp')"]
+      test: ["CMD", "python", "-c", "import urllib.request; req = urllib.request.Request('http://localhost:8765/mcp', headers={'Accept': 'text/event-stream'}); urllib.request.urlopen(req)"]
       interval: 5s
       timeout: 3s
       retries: 10
