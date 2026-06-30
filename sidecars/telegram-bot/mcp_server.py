@@ -109,5 +109,5 @@ async def cron_run(job_id: str) -> dict[str, Any]:
     """
     scheduler = await get_scheduler()
     job = await scheduler.run_job(job_id)
-    logger.info(f"Cron job manually triggered: {job['id']} ({job['name']})")
+    logger.info(f"Cron job manually triggered: {job['jobId']} ({job['name']})")
     return job

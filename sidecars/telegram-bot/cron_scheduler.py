@@ -179,7 +179,7 @@ class CronScheduler:
             raise ValueError(f"Cron job '{job_id}' not found")
 
         job = {
-            "id": row["id"],
+            "jobId": row["id"],
             "name": row["name"],
             "schedule": row["schedule"],
             "payload": json.loads(row["payload"]),
@@ -207,7 +207,7 @@ class CronScheduler:
         jobs = []
         for row in rows:
             jobs.append({
-                "id": row["id"],
+                "jobId": row["id"],
                 "name": row["name"],
                 "schedule": row["schedule"],
                 "payload": json.loads(row["payload"]),
@@ -232,8 +232,10 @@ class CronScheduler:
             iterator = croniter(row["schedule"], now)
             next_run = iterator.get_next(datetime)
             next_run_iso = next_run.isoformat()
-        except (ValueError, KeyError):
-            logger.error(f"Could not recalculate next_run for job {job_id}")
+        except (ValueError, KeyError) as e:
+            logger.error(f"Invalid schedule for job {job_id} ({row['schedule']}): {e}. Disabling job.")
+            await self.db.execute("UPDATE cron_jobs SET enabled = 0, updated_at = ? WHERE id = ?", (now_iso, job_id))
+            await self.db.commit()
             return
 
         await self.db.execute(

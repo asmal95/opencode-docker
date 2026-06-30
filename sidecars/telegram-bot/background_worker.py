@@ -86,7 +86,7 @@ async def _call_opencode(prompt: str, session_id: str) -> str | None:
 
 async def _dispatch_job(bot: Bot, scheduler: CronScheduler, job: dict) -> None:
     """Dispatch a single cron job to OpenCode and deliver result."""
-    job_id = job["id"]
+    job_id = job["jobId"]
     job_name = job["name"]
     prompt = job["payload"].get("prompt", "")
     delivery = job.get("delivery", {})
