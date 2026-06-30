@@ -26,6 +26,8 @@ services:
       - /tmp
     security_opt:
       - no-new-privileges:true
+    cap_drop:
+      - ALL
     networks:
       - opencode-net
     restart: unless-stopped
