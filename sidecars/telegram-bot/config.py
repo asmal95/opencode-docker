@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     OPENCODE_SERVER_PASSWORD: str
     ALLOWED_CHAT_IDS: str = ""
     PROJECT_DIR: str = ""
+    MCP_SERVER_PORT: int = 8765
+    MCP_SERVER_TOKEN: str = ""
+    MCP_SERVER_DB: str = "/opt/bot/cron.db"
 
     @property
     def allowed_chat_ids_set(self) -> set:

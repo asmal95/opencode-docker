@@ -46,6 +46,10 @@ services:
     image: asmal95/telegram-bot:latest
     depends_on:
       - opencode
+    ports:
+      - "8765:8765"
+    volumes:
+      - bot-cron-data:/opt/bot
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
@@ -67,6 +71,8 @@ volumes:
   opencode-state:
     driver: local
   opencode-workspace:
+    driver: local
+  bot-cron-data:
     driver: local
 
 networks:

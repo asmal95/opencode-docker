@@ -13,6 +13,10 @@ services:
       dockerfile: Dockerfile
     depends_on:
       - opencode
+    ports:
+      - "8765:8765"
+    volumes:
+      - bot-cron-data:/opt/bot
     environment:
       OPENCODE_API_URL: http://opencode:4096
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
@@ -25,3 +29,7 @@ services:
     networks:
       - opencode-net
     restart: unless-stopped
+
+volumes:
+  bot-cron-data:
+    driver: local

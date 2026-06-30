@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN chown -R botuser:botuser /app
+RUN mkdir -p /opt/bot && chown -R botuser:botuser /app /opt/bot
 
 USER botuser
 
