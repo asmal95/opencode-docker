@@ -30,10 +30,7 @@ async def get_scheduler() -> CronScheduler:
 
 
 # Create FastMCP server instance
-mcp = FastMCP(
-    "opencode-gateway",
-    description="OpenCode Gateway MCP Server - provides cron scheduling and task management",
-)
+mcp = FastMCP("opencode-gateway")
 
 
 @mcp.tool()

@@ -24,6 +24,12 @@ async def _handle_signal() -> None:
         await asyncio.sleep(0.5)
 
 
+async def _start_mcp_server(mcp, port: int) -> None:
+    """Start MCP server in a separate anyio run loop."""
+    import anyio
+    await anyio.run(mcp._run_http, host="0.0.0.0", port=port)
+
+
 async def main():
     global _shutdown
 
@@ -60,10 +66,13 @@ async def main():
         name="scheduler-worker"
     )
 
-    # Start MCP server
+    # Start MCP server in a separate thread (avoids event loop conflict)
     from mcp_server import mcp
+    async def _mcp_wrapper():
+        await mcp.run_http_async(host="0.0.0.0", port=settings.MCP_SERVER_PORT)
+
     mcp_task = asyncio.create_task(
-        mcp.run(transport="http", host="0.0.0.0", port=settings.MCP_SERVER_PORT),
+        _mcp_wrapper(),
         name="mcp-server"
     )
 

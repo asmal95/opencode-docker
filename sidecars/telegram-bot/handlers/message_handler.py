@@ -88,11 +88,11 @@ async def create_session(chat_id: int) -> str | None:
     if chat_id in _session_map:
         del _session_map[chat_id]
     title = f"chat:{chat_id}"
+    body = {"title": title}
+    params = {}
+    if settings.PROJECT_DIR:
+        params["directory"] = settings.PROJECT_DIR
     try:
-        body = {"title": title}
-        params = {}
-        if settings.PROJECT_DIR:
-            params["directory"] = settings.PROJECT_DIR
         resp = await _get_client().post("/session", json=body, params=params)
         resp.raise_for_status()
         session = resp.json()
@@ -100,6 +100,13 @@ async def create_session(chat_id: int) -> str | None:
         if sid:
             _session_map[chat_id] = sid
         return sid
+    except httpx.HTTPStatusError as e:
+        try:
+            error_body = await e.response.aread()
+            logger.error(f"POST /session error for chat {chat_id}: HTTP {e.response.status_code} — body='{error_body.decode()[:1000]}' — req_body={body} — req_url={e.request.url}")
+        except Exception:
+            logger.error(f"POST /session error for chat {chat_id}: HTTP {e.response.status_code} — body=<unreadable> — req_body={body}")
+        return None
     except Exception as e:
         logger.error(f"Error creating session for chat {chat_id}: {e}")
         return None
