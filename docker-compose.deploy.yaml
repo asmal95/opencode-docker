@@ -2,6 +2,9 @@ services:
   opencode:
     image: asmal95/opencode-platform:latest
     command: ["opencode", "serve", "--print-logs", "--log-level", "DEBUG", "--hostname", "0.0.0.0", "--port", "4096"]
+    depends_on:
+      telegram-bot:
+        condition: service_healthy
     ports:
       - "4096:4096"
     environment:
@@ -42,8 +45,6 @@ services:
 
   telegram-bot:
     image: asmal95/telegram-bot:latest
-    depends_on:
-      - opencode
     ports:
       - "8765:8765"
     volumes:
@@ -52,6 +53,12 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8765/mcp')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     read_only: true
     tmpfs:
       - /tmp
