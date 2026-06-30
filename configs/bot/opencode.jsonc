@@ -20,5 +20,15 @@
     "write": "allow",
     "edit": "allow",
     "bash": "allow"
+  },
+  "mcp": {
+    "gateway": {
+      "type": "remote",
+      "url": "http://telegram-bot:8765/mcp",
+      "enabled": true,
+      "headers": {
+        "Authorization": "Bearer {env:MCP_SERVER_TOKEN}"
+      }
+    }
   }
 }
