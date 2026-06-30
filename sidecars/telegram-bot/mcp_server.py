@@ -58,7 +58,7 @@ async def cron_add(
         Job ID, schedule, and next run time
     """
     scheduler = await get_scheduler()
-    result = await scheduler.add_job(name, schedule, payload, delivery, enabled)
+    result = await scheduler.add_job(name, schedule, payload, delivery, enabled=enabled)
     logger.info(f"Cron job added: {name} ({result['jobId']}), next run: {result['next_run']}")
     return result
 
@@ -80,34 +80,34 @@ async def cron_list(enabled_only: bool = False) -> list[dict[str, Any]]:
 
 
 @mcp.tool()
-async def cron_delete(jobId: str) -> dict[str, Any]:
+async def cron_delete(job_id: str) -> dict[str, Any]:
     """Delete a cron job by ID.
 
     Args:
-        jobId: The cron job ID to delete
+        job_id: The cron job ID to delete
 
     Returns:
         Success status and confirmation message
     """
     scheduler = await get_scheduler()
-    result = await scheduler.delete_job(jobId)
-    logger.info(f"Cron job deleted: {jobId}")
+    result = await scheduler.delete_job(job_id)
+    logger.info(f"Cron job deleted: {job_id}")
     return result
 
 
 @mcp.tool()
-async def cron_run(jobId: str) -> dict[str, Any]:
+async def cron_run(job_id: str) -> dict[str, Any]:
     """Manually trigger a cron job for one-time execution.
 
     Returns the job data including payload for dispatch.
 
     Args:
-        jobId: The cron job ID to run
+        job_id: The cron job ID to run
 
     Returns:
         Job data ready for dispatch (payload, delivery, etc.)
     """
     scheduler = await get_scheduler()
-    job = await scheduler.run_job(jobId)
+    job = await scheduler.run_job(job_id)
     logger.info(f"Cron job manually triggered: {job['id']} ({job['name']})")
     return job
