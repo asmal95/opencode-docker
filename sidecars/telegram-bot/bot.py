@@ -31,7 +31,7 @@ async def main():
         logger.error("TELEGRAM_BOT_TOKEN is not set or invalid. Please set a valid Telegram bot token in the environment.")
         logger.error("Container will now exit. Set a valid token to run the bot.")
         return
-    
+
     bot = Bot(
         token=settings.TELEGRAM_BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
@@ -40,7 +40,7 @@ async def main():
     dp.message.middleware(RetryMiddleware())
 
     dp.include_router(message_handler.router(bot))
-    
+
     logger.info("Starting Telegram bot...")
     await bot.delete_webhook(drop_pending_updates=True)
 
@@ -67,25 +67,25 @@ async def main():
         name="mcp-server"
     )
 
-    await dp.start_polling(bot)
-    await _handle_signal()
-
-    # Shutdown: cancel all tasks
-    worker_task.cancel()
-    mcp_task.cancel()
     try:
-        await worker_task
-    except asyncio.CancelledError:
-        pass
-    try:
-        await mcp_task
-    except asyncio.CancelledError:
-        pass
+        await dp.start_polling(bot)
+        await _handle_signal()
+    finally:
+        # Shutdown: cancel all tasks
+        worker_task.cancel()
+        mcp_task.cancel()
+        try:
+            await worker_task
+        except asyncio.CancelledError:
+            pass
+        try:
+            await mcp_task
+        except asyncio.CancelledError:
+            pass
 
-    await scheduler.close()
-    await bot.session.close()
-    from handlers.message_handler import close_client
-    await close_client()
+        await scheduler.close()
+        await bot.session.close()
+        await message_handler.close_client()
 
 
 if __name__ == "__main__":
