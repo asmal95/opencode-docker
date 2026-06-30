@@ -20,11 +20,5 @@
     "write": "allow",
     "edit": "allow",
     "bash": "allow"
-  },
-  "mcp_servers": {
-    "gateway": {
-      "url": "http://telegram-bot:8765/mcp",
-      "token": "{env:MCP_SERVER_TOKEN}"
-    }
   }
 }
