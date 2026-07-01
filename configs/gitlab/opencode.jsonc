@@ -1,0 +1,35 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": ["openai-compatible"],
+  "provider": {
+    "openai-compatible": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "{env:OPENAI_COMPATIBLE_BASE_URL}",
+        "apiKey": "{env:OPENAI_COMPATIBLE_API_KEY}"
+      },
+      "models": {
+        "deepseek/deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash"
+        }
+      }
+    }
+  },
+  "model": "openai-compatible/deepseek/deepseek-v4-flash",
+  "permission": {
+    "write": "allow",
+    "edit": "allow",
+    "bash": "allow"
+  },
+  "mcp": {
+    "gitlab": {
+      "type": "local",
+      "command": ["uv", "run", "--directory", "/opt/gitlab-mcp", "server.py"],
+      "environment": {
+        "GITLAB_URL": "{env:GITLAB_URL}",
+        "GITLAB_TOKEN": "{env:GITLAB_TOKEN}",
+        "GITLAB_PROJECT_ID": "{env:GITLAB_PROJECT_ID}"
+      }
+    }
+  }
+}
