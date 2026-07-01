@@ -1,0 +1,23 @@
+# Multi-stage: use existing opencode-base, add Python MCP server
+FROM asmal95/opencode-platform:latest AS opencode-base
+
+# Install Python venv tools (python3 already present from opencode-base)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-venv && \
+    python3 -m venv /opt/mcp-venv && \
+    rm -rf /var/lib/apt/lists/*
+ENV PATH="/opt/mcp-venv/bin:$PATH"
+
+# Install Python MCP server dependencies
+COPY sidecars/gitlab-mcp/requirements.txt /opt/gitlab-mcp/requirements.txt
+RUN uv pip install --system -r /opt/gitlab-mcp/requirements.txt
+
+# Copy MCP server source
+COPY sidecars/gitlab-mcp/ /opt/gitlab-mcp/
+
+# Copy OpenCode config
+COPY configs/gitlab/ /opt/opencode-config/
+
+# Default: run opencode in 'run' mode (one-shot)
+ENTRYPOINT ["opencode"]
+CMD ["run"]
