@@ -24,7 +24,7 @@
   "mcp": {
     "gitlab": {
       "type": "local",
-      "command": ["uv", "run", "--directory", "/opt/gitlab-mcp", "server.py"],
+      "command": ["python", "/opt/gitlab-mcp/server.py"],
       "environment": {
         "GITLAB_URL": "{env:GITLAB_URL}",
         "GITLAB_TOKEN": "{env:GITLAB_TOKEN}",
