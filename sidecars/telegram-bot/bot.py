@@ -40,7 +40,7 @@ async def main():
 
     bot = Bot(
         token=settings.TELEGRAM_BOT_TOKEN,
-        default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+        default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN_V2)
     )
     dp = Dispatcher()
     dp.message.middleware(RetryMiddleware())
