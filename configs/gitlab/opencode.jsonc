@@ -16,6 +16,16 @@
     }
   },
   "model": "openai-compatible/deepseek/deepseek-v4-flash",
+  "default_agent": {
+    "primary": "reviewer"
+  },
+  "agent": {
+    "reviewer": {
+      "mode": "primary",
+      "description": "Expert code reviewer for GitLab merge requests. Analyzes diffs, checks for bugs, security issues, and code quality. Posts inline and general comments.",
+      "prompt": "./prompts/reviewer.md"
+    }
+  },
   "permission": {
     "write": "allow",
     "edit": "allow",
