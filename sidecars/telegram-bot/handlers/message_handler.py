@@ -38,7 +38,7 @@ def _sanitize_html(html: str) -> str:
         if tag in _SUPPORTED_TAGS:
             return m.group(0)
         return ""
-    return re.sub(r"</?([a-zA-Z][a-zA-Z0-9]*)(\s[^>]*)?/?>", _replace, html)
+    return re.sub(r"</?([^\s/>]+)(\s[^>]*)?/?>", _replace, html, flags=re.UNICODE)
 
 # Per-chat session tracking
 _session_map: dict[int, str] = {}
