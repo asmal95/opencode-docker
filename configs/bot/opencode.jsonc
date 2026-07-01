@@ -53,7 +53,7 @@
       "enabled": true,
       "oauth": false,
       "headers": {
-        "Authorization": "Bearer {env:MCP_SERVER_TOKEN}"
+        "X-API-Key": "{env:MCP_SERVER_TOKEN}"
       }
     }
   }

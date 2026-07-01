@@ -43,17 +43,17 @@ async def get_scheduler() -> CronScheduler:
 
 
 class TokenAuth(Middleware):
-    """Validates Bearer token from Authorization header on every tool call."""
+    """Validates X-API-Key header."""
 
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         from config import settings
-        token = settings.MCP_SERVER_TOKEN
+        expected_token = settings.MCP_SERVER_TOKEN
 
         headers = get_http_headers() or {}
-        auth = headers.get("authorization", "")
-        expected = f"Bearer {token}"
-        if auth != expected:
-            raise ToolError("Unauthorized: invalid or missing MCP server token")
+        received_token = headers.get("x-api-key", "") or headers.get("X-API-Key", "")
+
+        if received_token != expected_token:
+            raise ToolError("Unauthorized: invalid or missing API key")
 
         return await call_next(context)
 
