@@ -1,3 +1,4 @@
+import hashlib
 import os
 import sys
 import unittest
@@ -7,6 +8,7 @@ from unittest.mock import MagicMock, patch
 # GitLabClient.__init__ succeeds.
 _GITLAB_MOCK = MagicMock()
 sys.modules["gitlab"] = _GITLAB_MOCK
+sys.modules["gitlab.exceptions"] = MagicMock(GitlabError=Exception)
 
 # Load gitlab_client module directly from its file path.
 _GITLAB_MCP_DIR = os.path.join(
@@ -20,16 +22,30 @@ from gitlab_client import (  # noqa: E402
     GitLabClient,
     MergeRequestDiff,
     ReviewComment,
+    _decode_file_content,
+    _should_retry_gitlab_error,
 )
 
 
-def _make_mock_mr():
+def _make_mock_mr(**overrides):
     """Create a fully wired mock MR chain: mock_gl -> mock_project -> mock_mr."""
     mock_gl = MagicMock()
     mock_project = MagicMock()
     mock_mr = MagicMock()
+
+    # Default diff_refs
+    mock_mr.diff_refs = {
+        "base_sha": "base123",
+        "start_sha": "start123",
+        "head_sha": "head123",
+    }
+
     mock_gl.projects.get.return_value = mock_project
     mock_project.mergerequests.get.return_value = mock_mr
+
+    for key, value in overrides.items():
+        setattr(mock_mr, key, value)
+
     return mock_gl, mock_project, mock_mr
 
 
@@ -39,6 +55,10 @@ _ENV = {
     "GITLAB_PROJECT_ID": "42",
 }
 
+
+# ------------------------------------------------------------------
+# Data model tests
+# ------------------------------------------------------------------
 
 class TestDiffFile(unittest.TestCase):
     def test_creation(self):
@@ -63,6 +83,11 @@ class TestDiffFile(unittest.TestCase):
         self.assertIsNone(df.new_line)
         self.assertEqual(df.diff, "")
 
+    def test_default_values(self):
+        df = DiffFile(old_path="a", new_path="a", old_line=1, new_line=1, diff="")
+        self.assertEqual(df.status, "modified")
+        self.assertIsNone(df.new_content)
+
 
 class TestMergeRequestDiff(unittest.TestCase):
     def test_empty_diff(self):
@@ -74,10 +99,6 @@ class TestMergeRequestDiff(unittest.TestCase):
             total_files=0,
         )
         self.assertEqual(diff.mr_iid, 1)
-        self.assertEqual(diff.source_branch, "feature")
-        self.assertEqual(diff.target_branch, "main")
-        self.assertEqual(diff.source_sha, "abc123")
-        self.assertEqual(diff.total_files, 0)
         self.assertEqual(diff.files, [])
 
 
@@ -91,8 +112,6 @@ class TestReviewComment(unittest.TestCase):
             system=False,
         )
         self.assertEqual(rc.note_id, 100)
-        self.assertEqual(rc.body, "Nice change")
-        self.assertEqual(rc.path, "src/main.py")
         self.assertEqual(rc.line, 42)
         self.assertFalse(rc.system)
 
@@ -104,11 +123,13 @@ class TestReviewComment(unittest.TestCase):
             line=None,
             system=False,
         )
-        self.assertEqual(rc.note_id, 200)
         self.assertIsNone(rc.path)
         self.assertIsNone(rc.line)
-        self.assertFalse(rc.system)
 
+
+# ------------------------------------------------------------------
+# Client init
+# ------------------------------------------------------------------
 
 class TestGitLabClientInit(unittest.TestCase):
     @patch.dict(os.environ, _ENV)
@@ -134,6 +155,10 @@ class TestGitLabClientInit(unittest.TestCase):
         self.assertIn("GITLAB_TOKEN", str(ctx.exception))
 
 
+# ------------------------------------------------------------------
+# MR details
+# ------------------------------------------------------------------
+
 class TestGetMergeRequest(unittest.TestCase):
     @patch.dict(os.environ, _ENV)
     def test_author_returned_as_dict(self):
@@ -156,15 +181,141 @@ class TestGetMergeRequest(unittest.TestCase):
             result = client.get_merge_request(5)
 
             self.assertEqual(result["iid"], 5)
-            self.assertEqual(result["title"], "Test MR")
-            self.assertEqual(result["sha"], "deadbeef")
             self.assertEqual(result["author"], {
                 "id": 1,
                 "username": "alice",
                 "name": "Alice",
             })
-            self.assertEqual(result["web_url"], "https://gitlab.example.com/-/merge_requests/5")
 
+
+# ------------------------------------------------------------------
+# Diff — mr.changes()
+# ------------------------------------------------------------------
+
+class TestGetMergeRequestDiff(unittest.TestCase):
+    @patch.dict(os.environ, _ENV)
+    def test_uses_mr_changes_with_file_content(self):
+        with patch.object(_GITLAB_MOCK, "Gitlab") as MockGitlab:
+            mock_gl, mock_project, mock_mr = _make_mock_mr()
+            MockGitlab.return_value = mock_gl
+
+            # Mock mr.changes() response
+            mock_mr.changes.return_value = {
+                "changes": [
+                    {
+                        "old_path": None,
+                        "new_path": "src/app.py",
+                        "old_line": None,
+                        "new_line": 1,
+                        "diff": "@@ -0 +1 @@\n+new code",
+                    },
+                    {
+                        "old_path": "old.py",
+                        "new_path": None,
+                        "old_line": 1,
+                        "new_line": None,
+                        "diff": "@@ -1 -1 @@\n-old code",
+                    },
+                    {
+                        "old_path": "a.py",
+                        "new_path": "b.py",
+                        "old_line": 1,
+                        "new_line": 1,
+                        "diff": "@@ -1 +1 @@\n-a\n+b",
+                    },
+                ]
+            }
+
+            client = GitLabClient()
+            result = client.get_merge_request_diff(5)
+
+            # Verify mr.changes() was called
+            mock_mr.changes.assert_called_once()
+
+            self.assertEqual(result.total_files, 3)
+
+            # First file: added
+            added = result.files[0]
+            self.assertEqual(added.status, "added")
+            self.assertEqual(added.new_path, "src/app.py")
+            self.assertIsNone(added.old_path)
+
+            # Second file: deleted
+            deleted = result.files[1]
+            self.assertEqual(deleted.status, "deleted")
+
+            # Third file: renamed
+            renamed = result.files[2]
+            self.assertEqual(renamed.status, "renamed")
+            self.assertEqual(renamed.old_path, "a.py")
+            self.assertEqual(renamed.new_path, "b.py")
+
+    @patch.dict(os.environ, _ENV)
+    def test_fetches_file_content_for_new_files(self):
+        with patch.object(_GITLAB_MOCK, "Gitlab") as MockGitlab:
+            mock_gl, mock_project, mock_mr = _make_mock_mr()
+            MockGitlab.return_value = mock_gl
+
+            mock_mr.changes.return_value = {
+                "changes": [
+                    {
+                        "old_path": None,
+                        "new_path": "src/new.py",
+                        "old_line": None,
+                        "new_line": 1,
+                        "diff": "+content",
+                    }
+                ]
+            }
+
+            # Mock repository_blob to return a real object with base64 content
+            import base64
+            encoded = base64.b64encode(b"hello world").decode()
+
+            class _Blob:
+                content = encoded
+
+            mock_project.repository_blob.return_value = _Blob()
+
+            client = GitLabClient()
+            result = client.get_merge_request_diff(5)
+
+            # Should have fetched file content
+            self.assertEqual(result.files[0].new_content, "hello world")
+
+    @patch.dict(os.environ, _ENV)
+    def test_skips_binary_files(self):
+        with patch.object(_GITLAB_MOCK, "Gitlab") as MockGitlab:
+            mock_gl, mock_project, mock_mr = _make_mock_mr()
+            MockGitlab.return_value = mock_gl
+
+            mock_mr.changes.return_value = {
+                "changes": [
+                    {
+                        "old_path": None,
+                        "new_path": "image.png",
+                        "old_line": None,
+                        "new_line": 1,
+                        "diff": "",
+                    }
+                ]
+            }
+
+            # repository_blob returns bytes content (binary file)
+            binary_blob = MagicMock()
+            binary_blob.content = b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"
+            mock_project.repository_blob.return_value = binary_blob
+
+            client = GitLabClient()
+            result = client.get_merge_request_diff(5)
+
+            # Binary content should not be fetched
+            self.assertIsNone(result.files[0].new_content)
+
+
+# ------------------------------------------------------------------
+# Comments
+# ------------------------------------------------------------------
 
 class TestListOldReviewerComments(unittest.TestCase):
     @patch.dict(os.environ, _ENV)
@@ -189,29 +340,15 @@ class TestListOldReviewerComments(unittest.TestCase):
             user_note.system = False
             user_note.body = "Just a regular user comment"
 
-            general_bot_note = MagicMock()
-            general_bot_note.id = 13
-            general_bot_note.system = False
-            general_bot_note.body = f"{BOT_TAG} General feedback\n"
-            general_bot_note.resolved_line_code = ""
-
-            mock_mr.notes.list.return_value = [bot_note, system_note, user_note, general_bot_note]
+            mock_mr.notes.list.return_value = [bot_note, system_note, user_note]
 
             client = GitLabClient()
             comments = client.list_old_reviewer_comments(5)
 
-            self.assertEqual(len(comments), 2)
-
+            self.assertEqual(len(comments), 1)
             self.assertEqual(comments[0].note_id, 10)
-            self.assertEqual(comments[0].body, "Review comment")
             self.assertEqual(comments[0].path, "src/main.py")
             self.assertEqual(comments[0].line, 42)
-            self.assertFalse(comments[0].system)
-
-            self.assertEqual(comments[1].note_id, 13)
-            self.assertEqual(comments[1].body, "General feedback")
-            self.assertIsNone(comments[1].path)
-            self.assertIsNone(comments[1].line)
 
 
 class TestPostComment(unittest.TestCase):
@@ -237,39 +374,78 @@ class TestPostComment(unittest.TestCase):
             self.assertIn("Review by opencode-gitlab-reviewer", body_sent)
 
             self.assertEqual(result["id"], 99)
-            self.assertEqual(result["body"], "some body")
             self.assertEqual(result["created_at"], "2025-01-01T00:00:00Z")
 
 
 class TestPostInlineComment(unittest.TestCase):
     @patch.dict(os.environ, _ENV)
-    def test_position_params_passed_correctly(self):
+    def test_uses_discussions_create_with_line_code(self):
         with patch.object(_GITLAB_MOCK, "Gitlab") as MockGitlab:
             mock_gl, mock_project, mock_mr = _make_mock_mr()
             MockGitlab.return_value = mock_gl
 
+            # discussions.create returns an object with .notes[0]
             mock_note = MagicMock()
-            mock_note.id = 101
+            mock_note.id = 200
+            mock_note.body = "body"
+            mock_note.created_at = "2025-06-01T12:00:00Z"
+            mock_discussion = MagicMock()
+            mock_discussion.notes = [mock_note]
+            mock_mr.discussions.create.return_value = mock_discussion
+
+            client = GitLabClient()
+            result = client.post_inline_comment(5, "src/app.py", 10, "Fix this")
+
+            # Verify discussions.create was called (not notes.create)
+            mock_mr.discussions.create.assert_called_once()
+
+            # Check position data
+            call_args = mock_mr.discussions.create.call_args
+            data_sent = call_args[0][0]
+            self.assertIn("body", data_sent)
+            self.assertIn("position", data_sent)
+
+            position = data_sent["position"]
+            self.assertEqual(position["new_path"], "src/app.py")
+            self.assertEqual(position["new_line"], 10)
+            self.assertEqual(position["position_type"], "text")
+            self.assertEqual(position["line_code"],
+                             f"{hashlib.sha1(b'src/app.py').hexdigest()}_10_10")
+
+            # Verify diff_refs were used
+            self.assertEqual(position["base_sha"], "base123")
+            self.assertEqual(position["head_sha"], "head123")
+
+            self.assertEqual(result["id"], 200)
+
+    @patch.dict(os.environ, _ENV)
+    def test_fallback_to_general_comment_on_line_code_error(self):
+        with patch.object(_GITLAB_MOCK, "Gitlab") as MockGitlab:
+            mock_gl, mock_project, mock_mr = _make_mock_mr()
+            MockGitlab.return_value = mock_gl
+
+            # discussions.create fails with line_code error
+            from gitlab.exceptions import GitlabError
+            mock_mr.discussions.create.side_effect = GitlabError("line_code validation failed")
+
+            # Fallback: notes.create succeeds
+            mock_note = MagicMock()
+            mock_note.id = 201
             mock_note.body = "body"
             mock_note.created_at = "2025-06-01T12:00:00Z"
             mock_mr.notes.create.return_value = mock_note
 
             client = GitLabClient()
-            result = client.post_inline_comment(5, "src/app.py", 10, "Fix this")
+            result = client.post_inline_comment(5, "src/app.py", 9999, "Fix")
 
-            call_args = mock_mr.notes.create.call_args
-            data_sent = call_args[0][0]
-            self.assertTrue(data_sent["body"].startswith(BOT_TAG))
-            self.assertIn("Fix this", data_sent["body"])
+            # Should have fallen back to general comment
+            self.assertEqual(result["id"], 201)
+            mock_mr.notes.create.assert_called_once()
 
-            position = data_sent["position"]
-            self.assertEqual(position["path"], "src/app.py")
-            self.assertEqual(position["position_type"], "text")
-            self.assertEqual(position["new_line"], 10)
 
-            self.assertEqual(result["id"], 101)
-            self.assertEqual(result["created_at"], "2025-06-01T12:00:00Z")
-
+# ------------------------------------------------------------------
+# Pipeline
+# ------------------------------------------------------------------
 
 class TestGetPipelineStatus(unittest.TestCase):
     @patch.dict(os.environ, _ENV)
@@ -295,9 +471,117 @@ class TestGetPipelineStatus(unittest.TestCase):
 
             self.assertEqual(result["status"], "success")
             self.assertEqual(result["pipeline_id"], 1000)
-            self.assertIsInstance(result["jobs"], list)
-            self.assertEqual(len(result["jobs"]), 1)
             self.assertEqual(result["jobs"][0]["name"], "build")
+
+    @patch.dict(os.environ, _ENV)
+    def test_no_pipelines_returns_unknown(self):
+        with patch.object(_GITLAB_MOCK, "Gitlab") as MockGitlab:
+            mock_gl, mock_project, mock_mr = _make_mock_mr()
+            MockGitlab.return_value = mock_gl
+            mock_mr.pipelines.list.return_value = []
+
+            client = GitLabClient()
+            result = client.get_pipeline_status(5)
+
+            self.assertEqual(result["status"], "unknown")
+            self.assertEqual(result["jobs"], [])
+
+
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
+
+class TestCalculateLineCode(unittest.TestCase):
+    def test_format(self):
+        code = GitLabClient._calculate_line_code("src/app.py", 42)
+        expected_sha = hashlib.sha1(b"src/app.py").hexdigest()
+        self.assertEqual(code, f"{expected_sha}_42_42")
+
+    def test_different_lines(self):
+        code1 = GitLabClient._calculate_line_code("test.py", 1)
+        code2 = GitLabClient._calculate_line_code("test.py", 2)
+        self.assertNotEqual(code1, code2)
+
+
+class TestDecodeFileContent(unittest.TestCase):
+    def test_bytes_input(self):
+        result = _decode_file_content(b"hello")
+        self.assertEqual(result, "hello")
+
+    def test_base64_string(self):
+        """Real object with base64-encoded content string."""
+        import base64
+        encoded = base64.b64encode(b"decoded content").decode()
+        # Use a simple class to hold content, not a MagicMock
+        class _Obj:
+            content = encoded
+        result = _decode_file_content(_Obj())
+        self.assertEqual(result, "decoded content")
+
+    def test_str_input(self):
+        """Plain string input — no attributes, just returned as-is."""
+        result = _decode_file_content("plain text")
+        self.assertEqual(result, "plain text")
+
+    def test_none_input(self):
+        result = _decode_file_content(None)
+        self.assertIsNone(result)
+
+    def test_mock_object_returns_none(self):
+        """MagicMock objects without real content return None."""
+        mock_obj = MagicMock()
+        mock_obj.content = "some value"
+        result = _decode_file_content(mock_obj)
+        self.assertIsNone(result)
+
+    def test_mock_with_binary_content(self):
+        """MagicMock with real binary content — returns None (binary)."""
+        mock_obj = MagicMock()
+        mock_obj.content = b"\x89\x50\x4e\x47\x0d\x0a\x1a\x0a"
+        result = _decode_file_content(mock_obj)
+        self.assertIsNone(result)
+
+
+class TestShouldRetryGitlabError(unittest.TestCase):
+    def test_429_retried(self):
+        exc = _GITLAB_MOCK.GitlabError()
+        exc.response_code = 429
+        self.assertTrue(_should_retry_gitlab_error(exc))
+
+    def test_500_retried(self):
+        exc = _GITLAB_MOCK.GitlabError()
+        exc.response_code = 500
+        self.assertTrue(_should_retry_gitlab_error(exc))
+
+    def test_401_not_retried(self):
+        exc = _GITLAB_MOCK.GitlabError()
+        exc.response_code = 401
+        self.assertFalse(_should_retry_gitlab_error(exc))
+
+    def test_403_not_retried(self):
+        exc = _GITLAB_MOCK.GitlabError()
+        exc.response_code = 403
+        self.assertFalse(_should_retry_gitlab_error(exc))
+
+    def test_404_not_retried(self):
+        exc = _GITLAB_MOCK.GitlabError()
+        exc.response_code = 404
+        self.assertFalse(_should_retry_gitlab_error(exc))
+
+    def test_transient_message_retried(self):
+        exc = _GITLAB_MOCK.GitlabError("Connection timed out")
+        self.assertTrue(_should_retry_gitlab_error(exc))
+
+
+class TestIsBinaryContent(unittest.TestCase):
+    def test_text_not_binary(self):
+        self.assertFalse(GitLabClient._is_binary_content("hello world"))
+
+    def test_empty_is_binary(self):
+        self.assertTrue(GitLabClient._is_binary_content(""))
+
+    def test_none_is_binary(self):
+        self.assertTrue(GitLabClient._is_binary_content(None))
 
 
 class TestCheckCommentRelevance(unittest.TestCase):

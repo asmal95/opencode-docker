@@ -6,7 +6,11 @@ from unittest.mock import MagicMock, patch
 
 # Pre-populate sys.modules so the lazy `import gitlab as gitlab_sdk` inside
 # GitLabClient.__init__ succeeds.
-sys.modules.setdefault("gitlab", MagicMock())
+_gitlab_mock = MagicMock()
+_gitlab_exceptions = MagicMock()
+_gitlab_exceptions.GitlabError = Exception
+sys.modules["gitlab"] = _gitlab_mock
+sys.modules["gitlab.exceptions"] = _gitlab_exceptions
 
 # Load gitlab_client and tools modules directly from their file paths.
 _GITLAB_MCP_DIR = os.path.join(
