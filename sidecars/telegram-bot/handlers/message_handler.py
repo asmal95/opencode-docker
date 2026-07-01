@@ -22,29 +22,6 @@ def router(bot: Bot) -> Router:
     r.message.register(handle_message)
     return r
 
-# Characters that must be escaped in Telegram MarkdownV2 when not inside a Markdown entity.
-_MARKDOWN_V2_ESCAPE_RE = re.compile(r"([_*\[\]()~`>#+\-=|{}.!\\])")
-
-
-def _escape_markdown_v2(text: str) -> str:
-    """Escape special MarkdownV2 characters in text that is not already inside a Markdown entity.
-
-    This is intentionally conservative: it only escapes bare characters that would
-    be interpreted by Telegram's MarkdownV2 parser. AI responses that already contain
-    valid Markdown entities (e.g. *bold*, _italic_, `code`) should be left intact,
-    so we only wrap the *rest* of the text in escaping.
-
-    A simpler but reliable approach: escape every special character and then the
-    Telegram parser will correctly render the remaining unescaped sequences as
-    Markdown entities.
-    """
-    # Escape characters that Telegram's MarkdownV2 parser treats specially.
-    # The backslash itself must be escaped first to avoid double-escaping.
-    text = text.replace("\\", "\\\\")
-    # Now escape the special characters.
-    text = _MARKDOWN_V2_ESCAPE_RE.sub(r"\\\1", text)
-    return text
-
 # Per-chat session tracking
 _session_map: dict[int, str] = {}
 
@@ -300,7 +277,7 @@ async def handle_message(message: types.Message, bot: Bot):
             response_text = text_parts[0].get("text", "")
             if response_text:
                 for chunk in [response_text[i:i+4096] for i in range(0, len(response_text), 4096)]:
-                    await message.answer(_escape_markdown_v2(chunk))
+                    await message.answer(chunk)
                     await bot.send_chat_action(chat_id, "typing")
                     await asyncio.sleep(0.5)
                 return

@@ -157,3 +157,5 @@ When the user asks about past context, plans, or decisions — search for releva
 
 Messages from users come with a chat hint appended: "[Chat ID: <number> - use this in cron delivery chat_id]"
 Use this Chat ID when creating cron jobs with delivery "user:current".
+
+**Important:** Do not use Markdown formatting in your responses (no `**bold**`, `*italic*`, `# headers`, etc.). Send plain text only. The only exception is when you are writing or editing `.md` files — there you may use Markdown freely.
