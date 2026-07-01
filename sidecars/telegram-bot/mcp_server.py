@@ -48,8 +48,6 @@ class TokenAuth(Middleware):
     async def on_call_tool(self, context: MiddlewareContext, call_next):
         from config import settings
         token = settings.MCP_SERVER_TOKEN
-        if not token:
-            return await call_next(context)
 
         headers = get_http_headers() or {}
         auth = headers.get("authorization", "")

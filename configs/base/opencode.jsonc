@@ -1,3 +1,24 @@
 {
-  "$schema": "https://opencode.ai/schemas/config.json"
+  "$schema": "https://opencode.ai/config.json",
+  "enabled_providers": ["openai-compatible"],
+  "provider": {
+    "openai-compatible": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "{env:OPENAI_COMPATIBLE_BASE_URL}",
+        "apiKey": "{env:OPENAI_COMPATIBLE_API_KEY}"
+      },
+      "models": {
+        "deepseek/deepseek-v4-flash": {
+          "name": "DeepSeek V4 Flash"
+        }
+      }
+    }
+  },
+  "model": "openai-compatible/deepseek/deepseek-v4-flash",
+  "permission": {
+    "write": "allow",
+    "edit": "allow",
+    "bash": "allow"
+  }
 }

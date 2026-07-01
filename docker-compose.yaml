@@ -24,11 +24,12 @@ services:
       - opencode-data:/home/coder/.local/share/opencode
       - opencode-cache:/home/coder/.cache/opencode
       - opencode-state:/home/coder/.local/state
-      - ./configs/${SCENARIO:-bot}:/opt/opencode-config/:ro
+      - ./configs/${SCENARIO:-base}:/opt/opencode-config/:ro
       - ${PROJECT_DIR:-.}:/workspace
     read_only: true
     tmpfs:
       - /tmp
+      - /home/coder/.config/opencode
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -56,6 +57,8 @@ volumes:
   opencode-cache:
     driver: local
   opencode-state:
+    driver: local
+  opencode-workspace:
     driver: local
 
 networks:

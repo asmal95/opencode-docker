@@ -20,6 +20,7 @@ Set your credentials:
 - `OPENAI_COMPATIBLE_BASE_URL` — Your AI provider endpoint (see below)
 - `OPENAI_COMPATIBLE_API_KEY` — Your API key
 - `OPENCODE_SERVER_PASSWORD` — Server authentication password
+- `MCP_SERVER_TOKEN` — MCP server authentication token (required for cron features)
 
 ### 3. Start
 
@@ -71,12 +72,38 @@ OPENCODE_SERVER_PASSWORD=your-strong-password
 - The Telegram bot automatically includes the auth header
 - Protects the API from unauthorized access
 
+## MCP Server & Cron Jobs
+
+The Telegram Bot includes an MCP (Model Context Protocol) server for scheduling recurring tasks. The OpenCode agent can use MCP tools to create reminders, scheduled reports, and periodic checks.
+
+### Available MCP Tools
+
+- **cron_add** — Schedule a recurring task
+- **cron_list** — List all scheduled jobs
+- **cron_delete** — Delete a scheduled job
+- **cron_run** — Manually trigger a job immediately
+
+### Environment Variables
+
+Additional variables for MCP server:
+
+- `MCP_SERVER_PORT` — Port for MCP server (default: `8765`)
+- `MCP_SERVER_TOKEN` — Authentication token for MCP requests (**required**)
+- `MCP_SERVER_DB` — Path to SQLite database for cron storage (default: `/opt/bot/cron.db`)
+
+### Usage Example
+
+Ask the bot to schedule a task:
+
+> "Remind me every day at 9 AM to check the server status"
+
+The agent will create a cron job that automatically executes and delivers results to your chat.
+
 ## Deployment Options
 
 | File | Use case |
 |------|----------|
 | `docker-compose.deploy.yaml` | DockerHub images (recommended) |
-| `docker-compose.ollama.yaml` | Prebuilt + `host.docker.internal` support |
 | `docker-compose.yaml` | Build from source (with bot) |
 
 ## Management

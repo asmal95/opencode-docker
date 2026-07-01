@@ -21,12 +21,11 @@ Two containers on shared Docker network `opencode-net`:
 | File | Purpose |
 |------|---------|
 | `docker-compose.deploy.yaml` | Production deployment (DockerHub images) |
-| `docker-compose.ollama.yaml` | Prebuilt + `host.docker.internal` support |
 | `docker-compose.yaml` | Local build from Dockerfile |
 | `docker-compose.override-bot.yaml` | Override for bot scenario (used with `docker-compose.yaml`) |
 | `Dockerfile` | Base image (opencode-base stage) |
 | `configs/bot/opencode.jsonc` | Provider config — single `openai-compatible` provider |
-| `configs/base/opencode.jsonc` | Minimal placeholder config |
+| `configs/base/opencode.jsonc` | Provider + model + basic permissions (default) |
 | `sidecars/telegram-bot/` | Bot sidecar (Python/aiogram) |
 
 ## Deployment Modes
@@ -34,7 +33,6 @@ Two containers on shared Docker network `opencode-net`:
 | Command | Use when |
 |---------|----------|
 | `docker compose -f docker-compose.deploy.yaml up -d` | Use DockerHub images (fastest) |
-| `docker compose -f docker-compose.ollama.yaml up -d` | Need `host.docker.internal` (Ollama on same machine) |
 | `docker compose -f docker-compose.yaml -f docker-compose.override-bot.yaml up -d` | Build from source |
 
 ## Configuration

@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict()
 
     TELEGRAM_BOT_TOKEN: str
     OPENCODE_API_URL: str = "http://opencode:4096"
@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     ALLOWED_CHAT_IDS: str = ""
     PROJECT_DIR: str = ""
     MCP_SERVER_PORT: int = 8765
-    MCP_SERVER_TOKEN: str = ""
+    MCP_SERVER_TOKEN: str
     MCP_SERVER_DB: str = "/opt/bot/cron.db"
 
     @property

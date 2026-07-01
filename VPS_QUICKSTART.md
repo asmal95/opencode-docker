@@ -39,6 +39,7 @@ services:
     ports:
       - "4096:4096"
     environment:
+      OPENCODE_CONFIG: /opt/opencode-config/opencode.jsonc
       OPENCODE_DISABLE_AUTOUPDATE: "true"
       OPENCODE_DISABLE_MODELS_FETCH: "true"
       OPENCODE_DISABLE_SHARE: "true"
@@ -48,21 +49,52 @@ services:
     volumes:
       - opencode-data:/home/coder/.local/share/opencode
       - opencode-cache:/home/coder/.cache/opencode
+      - opencode-state:/home/coder/.local/state
+      - opencode-workspace:/workspace
       - ./configs/bot:/opt/opencode-config:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /home/coder/.config/opencode
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
     restart: unless-stopped
     networks:
       - opencode-net
 
   telegram-bot:
     image: asmal95/telegram-bot:latest
-    depends_on:
-      - opencode
+    ports:
+      - "8765:8765"
+    volumes:
+      - bot-cron-data:/opt/bot
     environment:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       OPENCODE_API_URL: http://opencode:4096
       OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+      MCP_SERVER_TOKEN: ${MCP_SERVER_TOKEN}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.settimeout(2); s.connect(('127.0.0.1', 8765)); s.close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    depends_on:
+      opencode:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - opencode-net
@@ -71,6 +103,12 @@ volumes:
   opencode-data:
     driver: local
   opencode-cache:
+    driver: local
+  opencode-state:
+    driver: local
+  opencode-workspace:
+    driver: local
+  bot-cron-data:
     driver: local
 
 networks:
@@ -210,8 +248,8 @@ docker compose logs opencode
 
 ```bash
 # Check password is set in both containers
-docker compose -f docker-compose.deploy.yaml exec opencode env | grep SERVER_PASSWORD
-docker compose -f docker-compose.deploy.yaml logs telegram-bot | grep -i "401\|auth"
+docker compose exec opencode env | grep SERVER_PASSWORD
+docker compose logs telegram-bot | grep -i "401\|auth"
 ```
 
 ### Provider connection issues
